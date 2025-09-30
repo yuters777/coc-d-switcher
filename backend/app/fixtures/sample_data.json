@@ -1,0 +1,49 @@
+{
+  "extracted": {
+    "from_packing_slip": {
+      "sold_to": {"name": "NETHERLANDS MINISTRY OF DEFENCE"},
+      "ship_to": {"name": "BCD"},
+      "contract_number": "697.12.5011.01",
+      "part_no": "20580903700",
+      "description": "PNR-1000N WPTT",
+      "customer_item": "20000646041",
+      "quantity": 2,
+      "shipment_document": "Packing Slip 6SH264587",
+      "date": "20-03-2025",
+      "serials": ["NL13721", "NL13722"]
+    },
+    "from_company_coc": {
+      "customer": "NETHERLANDS MINISTRY OF DEFENCE",
+      "shipment_no": "6SH264587",
+      "order": "697.12.5011.01",
+      "coc_no": "COC011285",
+      "date": "20/Mar/2025",
+      "serials": ["NL13721", "NL13722"],
+      "qa_signer": "YESHAYA ORLY"
+    }
+  },
+  "part_I": {
+    "supplier_serial_no": "COC_SV_Del165_20.03.2025.docx",
+    "contract_number": "697.12.5011.01",
+    "applicable_to": "6SH264587",
+    "items": [{
+      "contract_item": "1",
+      "product_description_or_part": "20580903700; PNR-1000N WPTT; Customer Item 20000646041",
+      "quantity": 2,
+      "shipment_document": "Packing Slip 6SH264587"
+    }],
+    "remarks": "SW Ver. # 2.2.15.45",
+    "date": "20/Mar/2025",
+    "serials": ["NL13721", "NL13722"]
+  },
+  "part_II": {
+    "supplier_coc_serial_no": "COC_SV_Del165_20.03.2025.docx",
+    "contract_number": "697.12.5011.01"
+  },
+  "render_vars": {
+    "docx_template": "COC_SV_Del165_20.03.2025.docx",
+    "output_filename": "COC_SV_Del165_20.03.2025.docx",
+    "date_format": "DD/MMM/YYYY"
+  },
+  "validation": {"errors": [], "warnings": []}
+}

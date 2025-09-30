@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/app:/app/app
+      - ./backend/templates:/app/templates
+    environment:
+      - PYTHONUNBUFFERED=1
+      - CORS_ORIGINS=http://localhost:5173
+      - TEMPLATE_PATH=/app/templates/COC_SV_Del165_20.03.2025.docx
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    environment:
+      - VITE_API_URL=http://localhost:8000
