@@ -26,4 +26,11 @@ Thumbs.db
 !templates/*.docx
 
 # Environment
+<<<<<<< HEAD
 .env
+=======
+.env
+desktop.ini
+>>>>>>> 4ef4467 (Sync local Drive changes after cleaning corrupt refs)
+
+.git_bad/

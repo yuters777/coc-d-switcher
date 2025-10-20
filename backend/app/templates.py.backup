@@ -1,0 +1,121 @@
+# backend/app/templates.py
+from pathlib import Path
+from typing import Dict, List, Optional
+from datetime import datetime
+import json
+import shutil
+
+TEMPLATES_DIR = Path("backend/templates")
+TEMPLATES_DIR.mkdir(exist_ok=True)
+
+TEMPLATE_METADATA_FILE = TEMPLATES_DIR / "metadata.json"
+
+def load_metadata() -> Dict:
+    """Load template metadata from disk"""
+    if TEMPLATE_METADATA_FILE.exists():
+        return json.loads(TEMPLATE_METADATA_FILE.read_text())
+    return {"templates": []}
+
+def save_metadata(metadata: Dict):
+    """Save template metadata to disk"""
+    TEMPLATE_METADATA_FILE.write_text(json.dumps(metadata, indent=2))
+
+def list_templates() -> List[Dict]:
+    """List all available templates"""
+    metadata = load_metadata()
+    return metadata.get("templates", [])
+
+def get_template(template_id: str) -> Optional[Dict]:
+    """Get template by ID"""
+    templates = list_templates()
+    return next((t for t in templates if t["id"] == template_id), None)
+
+def get_default_template() -> Dict:
+    """Get the default template"""
+    templates = list_templates()
+    default = next((t for t in templates if t.get("is_default")), None)
+    if not default and templates:
+        return templates[0]  # Return first if no default set
+    return default
+
+def add_template(file_path: Path, name: str, version: str, set_as_default: bool = False) -> Dict:
+    """Add a new template"""
+    import uuid
+    
+    metadata = load_metadata()
+    templates = metadata.get("templates", [])
+    
+    template_id = str(uuid.uuid4())
+    filename = f"{template_id}_{file_path.name}"
+    dest_path = TEMPLATES_DIR / filename
+    
+    # Copy template file
+    shutil.copy(file_path, dest_path)
+    
+    # If setting as default, unset others
+    if set_as_default:
+        for t in templates:
+            t["is_default"] = False
+    
+    # Add to metadata
+    template_info = {
+        "id": template_id,
+        "name": name,
+        "version": version,
+        "filename": filename,
+        "path": str(dest_path),
+        "uploaded_at": datetime.utcnow().isoformat(),
+        "is_default": set_as_default or len(templates) == 0  # First one is default
+    }
+    
+    templates.append(template_info)
+    metadata["templates"] = templates
+    save_metadata(metadata)
+    
+    return template_info
+
+def set_default_template(template_id: str) -> bool:
+    """Set a template as default"""
+    metadata = load_metadata()
+    templates = metadata.get("templates", [])
+    
+    found = False
+    for t in templates:
+        if t["id"] == template_id:
+            t["is_default"] = True
+            found = True
+        else:
+            t["is_default"] = False
+    
+    if found:
+        save_metadata(metadata)
+    return found
+
+def delete_template(template_id: str) -> bool:
+    """Delete a template"""
+    metadata = load_metadata()
+    templates = metadata.get("templates", [])
+    
+    template = next((t for t in templates if t["id"] == template_id), None)
+    if not template:
+        return False
+    
+    # Don't delete if it's the only template
+    if len(templates) == 1:
+        return False
+    
+    # Delete file
+    file_path = Path(template["path"])
+    if file_path.exists():
+        file_path.unlink()
+    
+    # Remove from metadata
+    templates = [t for t in templates if t["id"] != template_id]
+    
+    # If deleted template was default, set first as default
+    if template.get("is_default") and templates:
+        templates[0]["is_default"] = True
+    
+    metadata["templates"] = templates
+    save_metadata(metadata)
+    return True
