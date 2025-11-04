@@ -38,14 +38,14 @@ def cleanup_templates():
             if file.name not in [".gitkeep", "metadata.json"]:
                 try:
                     file.unlink()
-                except:
-                    pass
+                except (OSError, PermissionError) as e:
+                    print(f"Warning: Could not delete {file}: {e}")
         metadata_file = templates_dir / "metadata.json"
         if metadata_file.exists():
             try:
                 metadata_file.unlink()
-            except:
-                pass
+            except (OSError, PermissionError) as e:
+                print(f"Warning: Could not delete metadata: {e}")
     
     yield  # Run the test
     
@@ -55,8 +55,8 @@ def cleanup_templates():
             if file.name not in [".gitkeep"]:
                 try:
                     file.unlink()
-                except:
-                    pass
+                except (OSError, PermissionError) as e:
+                    print(f"Warning: Could not delete {file}: {e}")
 
 
 class TestTemplateAPI:
