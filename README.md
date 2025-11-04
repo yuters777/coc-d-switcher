@@ -10,13 +10,24 @@ docker-compose up --build
 ```
 
 Local Development:
+
+**Option 1: Using startup scripts (recommended)**
+```bash
+# Backend (in one terminal)
+./start-backend.sh
+
+# Frontend (in another terminal)
+./start-frontend.sh
+```
+
+**Option 2: Manual setup**
 ```bash
 # Backend
 cd backend
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 # Frontend
 cd frontend
@@ -25,6 +36,9 @@ npm run dev
 ```
 
 ## Access Points
-- Frontend: http://localhost:5173
-- Backend API: http://localhost:8000
-- API Docs: http://localhost:8000/docs
+The services are configured to listen on all network interfaces (0.0.0.0):
+- Frontend: http://localhost:5173 or http://[your-ip]:5173
+- Backend API: http://localhost:8000 or http://[your-ip]:8000
+- API Docs: http://localhost:8000/docs or http://[your-ip]:8000/docs
+
+Replace `[your-ip]` with your machine's IP address (e.g., 21.0.0.26)
