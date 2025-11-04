@@ -10,11 +10,15 @@ def validate_conversion(data: Dict[str, Any]) -> Dict[str, List[Dict[str, str]]]
 
     part_i = data.get("part_I", {})
 
+    # Handle malformed data
+    if part_i is None:
+        part_i = {}
+
     # Check serial count matches quantity
     serials = part_i.get("serials", [])
     items = part_i.get("items", [])
 
-    if items and serials:
+    if items:
         quantity = items[0].get("quantity", 0)
         if len(serials) != quantity:
             errors.append({

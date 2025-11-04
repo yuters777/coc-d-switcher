@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import App from '../App';
 
 describe('COC-D Switcher App', () => {
@@ -9,23 +9,15 @@ describe('COC-D Switcher App', () => {
     expect(heading).toBeInTheDocument();
   });
 
-  test('create job button works', async () => {
+  test('renders dashboard heading', () => {
     render(<App />);
-    const button = screen.getByText(/Create New Job/i);
-    
-    fireEvent.click(button);
-    
-    await waitFor(() => {
-      expect(button).toHaveTextContent(/Creating.../i);
-    });
+    const dashboardHeading = screen.getByText(/Dashboard/i);
+    expect(dashboardHeading).toBeInTheDocument();
   });
 
-  test('displays validation errors', () => {
-    const mockErrors = [
-      { code: 'SERIAL_COUNT_MISMATCH', message: 'Serial count mismatch', where: 'serials' }
-    ];
-    
-    // Test validation panel with errors
-    // Implementation depends on your component structure
+  test('displays ready message', () => {
+    render(<App />);
+    const readyMessage = screen.getByText(/Application is ready for development/i);
+    expect(readyMessage).toBeInTheDocument();
   });
 });

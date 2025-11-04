@@ -1,0 +1,179 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop, claude/* ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  backend-tests:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        cd backend
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-test.txt
+
+    - name: Run unit tests
+      run: |
+        cd backend
+        pytest tests/test_unit/ -v --tb=short
+
+    - name: Run API tests
+      run: |
+        cd backend
+        pytest tests/test_api/ -v --tb=short
+
+    - name: Run integration tests
+      run: |
+        cd backend
+        pytest tests/test_integration.py -v --tb=short
+
+    - name: Run performance tests
+      run: |
+        cd backend
+        pytest tests/test_performance.py -v --tb=short
+
+    - name: Generate coverage report
+      run: |
+        cd backend
+        pytest tests/ --cov=app --cov-report=xml --cov-report=html
+
+    - name: Upload coverage to artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: backend-coverage
+        path: backend/htmlcov/
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        files: backend/coverage.xml
+        flags: backend
+        name: backend-coverage
+
+  frontend-tests:
+    name: Frontend Tests
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install dependencies
+      run: |
+        cd frontend
+        npm ci
+
+    - name: Run linter
+      run: |
+        cd frontend
+        npm run lint
+
+    - name: Run tests
+      run: |
+        cd frontend
+        npm run test:run
+
+    - name: Generate coverage
+      run: |
+        cd frontend
+        npm run test:coverage
+
+    - name: Type check
+      run: |
+        cd frontend
+        npm run build
+
+    - name: Upload coverage to artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: frontend-coverage
+        path: frontend/coverage/
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        files: frontend/coverage/lcov.info
+        flags: frontend
+        name: frontend-coverage
+
+  docker-build:
+    name: Docker Build Test
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Build Docker images
+      run: |
+        docker-compose build
+
+    - name: Test Docker containers
+      run: |
+        docker-compose up -d
+        sleep 10
+        curl -f http://localhost:8000/ || exit 1
+        docker-compose down
+
+  security-scan:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy results to GitHub Security
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  test-summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests, docker-build]
+    if: always()
+
+    steps:
+    - name: Check test results
+      run: |
+        echo "Backend tests: ${{ needs.backend-tests.result }}"
+        echo "Frontend tests: ${{ needs.frontend-tests.result }}"
+        echo "Docker build: ${{ needs.docker-build.result }}"
+
+        if [ "${{ needs.backend-tests.result }}" != "success" ] || \
+           [ "${{ needs.frontend-tests.result }}" != "success" ] || \
+           [ "${{ needs.docker-build.result }}" != "success" ]; then
+          echo "Some tests failed!"
+          exit 1
+        fi
+
+        echo "All tests passed!"

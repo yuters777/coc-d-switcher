@@ -8,12 +8,25 @@ def extract_from_pdfs(company_coc_path: Optional[str], packing_slip_path: Option
     """Extract data from PDFs"""
     config = load_config()
 
+    # Generate supplier serial number
+    today = datetime.now()
+    # Format: COC_SV_Del{last3digits}_{date}.docx
+    supplier_serial = f"COC_SV_Del{today.day:03d}_{today.strftime('%d.%m.%Y')}.docx"
+
     result = {
         "extracted": {"from_packing_slip": {}, "from_company_coc": {}},
-        "part_I": {},
+        "part_I": {
+            "supplier_serial_no": supplier_serial,
+            "contract_number": "",
+            "applicable_to": "",
+            "items": [],
+            "serials": [],
+            "remarks": "",
+            "date": ""
+        },
         "part_II": {},
         "render_vars": {
-            "docx_template": "COC_SV_Del165_20.03.2025.docx",
+            "docx_template": supplier_serial,
             "output_filename": "",
             "date_format": "DD/MMM/YYYY"
         },
