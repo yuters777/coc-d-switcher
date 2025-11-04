@@ -11,6 +11,42 @@ docker-compose up --build
 
 Local Development:
 
+### Windows (PowerShell)
+
+**Option 1: Using startup scripts (recommended)**
+
+1. Open **two PowerShell terminals** in the project root directory
+2. In the **first terminal** (Backend):
+   ```powershell
+   .\start-backend.ps1
+   ```
+3. In the **second terminal** (Frontend):
+   ```powershell
+   .\start-frontend.ps1
+   ```
+
+**Note:** If you get an execution policy error, run this command first:
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+**Option 2: Manual setup**
+```powershell
+# Backend (Terminal 1)
+cd backend
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+# Frontend (Terminal 2)
+cd frontend
+npm install
+npm run dev
+```
+
+### Linux/Mac (Bash)
+
 **Option 1: Using startup scripts (recommended)**
 ```bash
 # Backend (in one terminal)
