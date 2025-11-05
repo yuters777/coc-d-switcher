@@ -62,17 +62,20 @@ export default function TemplateManager() {
       });
 
       if (response.ok) {
+        const result = await response.json();
+        console.log('Upload successful:', result);
         alert('Template uploaded successfully');
         setShowUpload(false);
         setUploadData({ file: null, name: '', version: '', set_as_default: false });
-        loadTemplates();
+        await loadTemplates();
       } else {
         const error = await response.json();
-        alert(`Upload failed: ${error.detail}`);
+        console.error('Upload failed with error:', error);
+        alert(`Upload failed: ${error.detail || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Upload error:', error);
-      alert('Upload failed');
+      alert(`Upload failed: ${error instanceof Error ? error.message : 'Network error or CORS issue'}`);
     } finally {
       setUploading(false);
     }
