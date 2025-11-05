@@ -1,7 +1,9 @@
 import os
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+import logging
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel
 from typing import Dict, Any, List, Optional
 import uuid
@@ -18,6 +20,27 @@ from .config import load_config
 from . import templates
 
 app = FastAPI(title="COC-D Switcher API")
+
+logger = logging.getLogger("uvicorn")
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Custom handler to log validation errors for debugging"""
+    body = None
+    try:
+        body = await request.body()
+        body_text = body.decode('utf-8') if body else "empty"
+    except:
+        body_text = "could not decode"
+
+    logger.error(f"Validation error on {request.method} {request.url.path}")
+    logger.error(f"Request body: {body_text}")
+    logger.error(f"Errors: {exc.errors()}")
+
+    return JSONResponse(
+        status_code=422,
+        content={"detail": exc.errors(), "body": body_text}
+    )
 
 cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
 
@@ -44,6 +67,8 @@ async def root():
 
 @app.post("/api/jobs")
 async def create_job(job: JobCreate):
+    logger.info(f"Creating job: name={job.name}, submitted_by={job.submitted_by}")
+
     job_id = str(uuid.uuid4())
     jobs_db[job_id] = {
         "id": job_id,
@@ -57,6 +82,7 @@ async def create_job(job: JobCreate):
         "validation": None,
         "rendered_files": {}
     }
+    logger.info(f"Job created successfully: {job_id}")
     return {"job_id": job_id}
 
 @app.get("/api/jobs")
