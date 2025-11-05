@@ -30,8 +30,9 @@ app.add_middleware(
 )
 
 jobs_db: Dict[str, Dict[str, Any]] = {}
-UPLOAD_DIR = Path("/tmp/coc-uploads")
-UPLOAD_DIR.mkdir(exist_ok=True)
+# Use cross-platform temp directory or local uploads folder
+UPLOAD_DIR = Path(tempfile.gettempdir()) / "coc-uploads"
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 class JobCreate(BaseModel):
     name: str
