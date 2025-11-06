@@ -45,6 +45,7 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
   ];
 
   const handleCreateJob = async () => {
+    console.log('Create job clicked', jobState);
     if (!jobState.name || !jobState.submittedBy) {
       alert('Please enter job name and your name');
       return;
@@ -52,6 +53,7 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
 
     setLoading(true);
     try {
+      console.log('Sending request to create job...');
       const response = await fetch(`${API_BASE}/api/jobs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -61,12 +63,17 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
         })
       });
 
+      console.log('Create job response:', response.status, response.ok);
+
       if (response.ok) {
         const data = await response.json();
+        console.log('Job created:', data);
         setJobState({ ...jobState, jobId: data.job_id });
         alert('Job created! Now upload your files.');
       } else {
-        alert('Failed to create job');
+        const errorText = await response.text();
+        console.error('Failed to create job:', errorText);
+        alert('Failed to create job: ' + errorText);
       }
     } catch (error) {
       console.error('Create job error:', error);
@@ -120,9 +127,13 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
   };
 
   const handleStepClick = (step: WorkflowStep) => {
+    console.log('Step clicked:', step, 'Current step:', currentStep);
     // For now, only allow clicking on the current step or completed steps
     if (step <= currentStep) {
       setCurrentStep(step);
+      console.log('Step changed to:', step);
+    } else {
+      console.log('Step', step, 'is not accessible yet');
     }
   };
 
@@ -298,6 +309,11 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
       <AppNav title="COC-D Switcher" onSettingsClick={onSettingsClick} />
 
       <div className="container mx-auto p-6 max-w-5xl">
+        {/* Debug info */}
+        <div className="mb-4 p-2 bg-blue-100 text-xs text-blue-800 rounded">
+          DEBUG: Current Step = {currentStep} | Job ID = {jobState.jobId || 'None'}
+        </div>
+
         {/* Workflow Steps */}
         <div className="mb-8 bg-white rounded-lg shadow p-6">
           <h2 className="text-sm font-semibold text-gray-500 mb-4">CONVERSION WORKFLOW</h2>
