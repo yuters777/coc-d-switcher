@@ -126,6 +126,43 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
     }
   };
 
+  const handleParse = async () => {
+    if (!jobState.jobId) {
+      alert('No job found. Please create a job and upload files first.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      console.log('Parsing documents for job:', jobState.jobId);
+      const response = await fetch(`${API_BASE}/api/jobs/${jobState.jobId}/parse`, {
+        method: 'POST'
+      });
+
+      console.log('Parse response:', response.status, response.ok);
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Parsed data:', data);
+        setJobState({
+          ...jobState,
+          extractedData: data.extracted_data
+        });
+        alert('Documents parsed successfully! Click "Manual" to add additional data.');
+        setCurrentStep(3);
+      } else {
+        const errorText = await response.text();
+        console.error('Failed to parse:', errorText);
+        alert('Failed to parse documents: ' + errorText);
+      }
+    } catch (error) {
+      console.error('Parse error:', error);
+      alert('Failed to parse documents: ' + error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleStepClick = (step: WorkflowStep) => {
     console.log('Step clicked:', step, 'Current step:', currentStep);
     // For now, only allow clicking on the current step or completed steps
@@ -225,12 +262,38 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
             <h3 className="text-xl font-semibold">Step 2: Parse Documents</h3>
             <div className="bg-white rounded-lg shadow p-6">
               <p className="text-gray-600 mb-4">Extract data from uploaded PDF documents</p>
+
+              {jobState.extractedData ? (
+                <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded">
+                  <p className="text-sm text-green-800 font-semibold mb-2">✓ Documents parsed successfully</p>
+                  <div className="text-xs text-gray-600">
+                    <p>Extracted data is ready for manual input</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded">
+                  <p className="text-sm text-blue-800">
+                    Files ready: {jobState.files?.coc && '✓ COC'} {jobState.files?.packing && '✓ Packing Slip'}
+                  </p>
+                </div>
+              )}
+
               <button
-                onClick={() => alert('Parse functionality coming soon')}
-                className="w-full bg-blue-600 text-white py-3 rounded hover:bg-blue-700 font-medium"
+                onClick={handleParse}
+                disabled={loading || !!jobState.extractedData}
+                className="w-full bg-blue-600 text-white py-3 rounded hover:bg-blue-700 disabled:bg-gray-400 font-medium"
               >
-                Parse Documents
+                {loading ? 'Parsing...' : jobState.extractedData ? 'Already Parsed' : 'Parse Documents'}
               </button>
+
+              {jobState.extractedData && (
+                <button
+                  onClick={() => setCurrentStep(3)}
+                  className="w-full mt-3 bg-green-600 text-white py-3 rounded hover:bg-green-700 font-medium"
+                >
+                  Continue to Manual Input →
+                </button>
+              )}
             </div>
           </div>
         );

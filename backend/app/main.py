@@ -159,6 +159,43 @@ async def upload_job_files(
             packing_path.unlink()
         raise HTTPException(status_code=500, detail=f"Failed to upload files: {str(e)}")
 
+@app.post("/api/jobs/{job_id}/parse")
+async def parse_job_files(job_id: str):
+    """Parse uploaded PDF files and extract data"""
+    logger.info(f"Parsing files for job {job_id}")
+
+    if job_id not in jobs_db:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    job = jobs_db[job_id]
+
+    if "files" not in job or not job["files"]:
+        raise HTTPException(status_code=400, detail="No files uploaded for this job")
+
+    try:
+        # Extract data from PDFs
+        coc_path = job["files"].get("company_coc")
+        packing_path = job["files"].get("packing_slip")
+
+        logger.info(f"Extracting data from: COC={coc_path}, Packing={packing_path}")
+        extracted_data = extract_from_pdfs(coc_path, packing_path)
+
+        # Update job record
+        jobs_db[job_id]["extracted_data"] = extracted_data
+        jobs_db[job_id]["status"] = "parsed"
+        jobs_db[job_id]["updated_at"] = datetime.utcnow().isoformat()
+
+        logger.info(f"Files parsed successfully for job {job_id}")
+
+        return {
+            "message": "Files parsed successfully",
+            "job_id": job_id,
+            "extracted_data": extracted_data
+        }
+    except Exception as e:
+        logger.error(f"Error parsing files: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to parse files: {str(e)}")
+
 # Template Management Endpoints
 @app.get("/api/templates")
 async def list_templates():
