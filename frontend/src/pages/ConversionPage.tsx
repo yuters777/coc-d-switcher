@@ -36,6 +36,7 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
   const [showMissingDataModal, setShowMissingDataModal] = useState(false);
   const [missingDataFields, setMissingDataFields] = useState<string[]>([]);
   const [pendingManualData, setPendingManualData] = useState<any>(null);
+  const [showValidationErrorModal, setShowValidationErrorModal] = useState(false);
 
   const API_BASE = 'http://localhost:8000';
 
@@ -234,7 +235,8 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
         });
 
         if (data.has_errors) {
-          alert(`Validation completed with ${data.validation.errors.length} error(s). Please review and fix before proceeding.`);
+          // Show validation error modal instead of just an alert
+          setShowValidationErrorModal(true);
         } else if (data.has_warnings) {
           alert(`Validation completed with ${data.validation.warnings.length} warning(s). You may proceed to render.`);
           setCurrentStep(5);
@@ -403,14 +405,40 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
                     <p><strong>Partial Delivery #:</strong> {jobState.manualData.partial_delivery_number}</p>
                     <p><strong>Undelivered Quantity:</strong> {jobState.manualData.undelivered_quantity}</p>
                     <p><strong>Software Version:</strong> {jobState.manualData.sw_version}</p>
+                    {jobState.manualData.contract_number && (
+                      <p><strong>Contract Number:</strong> {jobState.manualData.contract_number}</p>
+                    )}
+                    {jobState.manualData.shipment_no && (
+                      <p><strong>Shipment Number:</strong> {jobState.manualData.shipment_no}</p>
+                    )}
+                    {jobState.manualData.product_description && (
+                      <p><strong>Product Description:</strong> {jobState.manualData.product_description}</p>
+                    )}
+                    {jobState.manualData.quantity && (
+                      <p><strong>Quantity:</strong> {jobState.manualData.quantity}</p>
+                    )}
                   </div>
                 </div>
-                <button
-                  onClick={() => setCurrentStep(4)}
-                  className="w-full bg-green-600 text-white py-3 rounded hover:bg-green-700 font-medium"
-                >
-                  Continue to Validation →
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      // Clear manual data to show the form again
+                      setJobState({
+                        ...jobState,
+                        manualData: null
+                      });
+                    }}
+                    className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 font-medium"
+                  >
+                    ✏️ Edit Data
+                  </button>
+                  <button
+                    onClick={() => setCurrentStep(4)}
+                    className="flex-1 bg-green-600 text-white py-2 rounded hover:bg-green-700 font-medium"
+                  >
+                    Continue to Validation →
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="bg-white rounded-lg shadow p-6">
@@ -761,6 +789,29 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
         confirmText="Proceed Anyway"
         cancelText="Go Back & Fill In"
         type="warning"
+      />
+
+      {/* Validation Error Modal */}
+      <ConfirmationModal
+        isOpen={showValidationErrorModal}
+        title="Validation Errors Found"
+        message="The following validation errors were found. You can fix them or proceed anyway (not recommended)."
+        items={jobState.validationResult?.errors?.map((err: any) => `${err.code}: ${err.message}`) || []}
+        onConfirm={() => {
+          // User wants to skip validation
+          setShowValidationErrorModal(false);
+          if (confirm('⚠️ Final Warning\n\nProceeding with validation errors may result in incomplete or incorrect documents.\n\nAre you absolutely sure?')) {
+            setCurrentStep(5);
+          }
+        }}
+        onCancel={() => {
+          // User wants to fix errors - go back to Step 3
+          setShowValidationErrorModal(false);
+          setCurrentStep(3);
+        }}
+        confirmText="Skip Validation (Not Recommended)"
+        cancelText="Go Back to Step 3 & Fix"
+        type="error"
       />
 
       <div className="container mx-auto p-6 max-w-5xl">
