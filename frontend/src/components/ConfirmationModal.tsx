@@ -81,9 +81,9 @@ export default function ConfirmationModal({
             <div className={`${colors.bg} border ${colors.border} rounded p-4 mb-4`}>
               <ul className="space-y-2">
                 {items.map((item, idx) => (
-                  <li key={idx} className="flex items-start gap-2">
-                    <span className="text-gray-600 flex-shrink-0">•</span>
-                    <span className="text-gray-800 font-medium">{item}</span>
+                  <li key={idx} className="flex flex-row items-start gap-2">
+                    <span className="text-gray-600 inline-block flex-shrink-0 leading-tight">•</span>
+                    <span className="text-gray-800 font-medium flex-1">{item}</span>
                   </li>
                 ))}
               </ul>
