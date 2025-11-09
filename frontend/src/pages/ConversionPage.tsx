@@ -101,14 +101,21 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
       return;
     }
 
-    if (!jobState.files?.coc || !jobState.files?.packing) {
-      alert('Please select both COC and Packing Slip PDFs');
+    // Packing slip is required, COC is optional
+    if (!jobState.files?.packing) {
+      alert('Please select at least the Packing Slip PDF');
       return;
     }
 
     setLoading(true);
     const formData = new FormData();
-    formData.append('company_coc', jobState.files.coc);
+
+    // Add COC file if provided (optional)
+    if (jobState.files.coc) {
+      formData.append('company_coc', jobState.files.coc);
+    }
+
+    // Add packing slip (required)
     formData.append('packing_slip', jobState.files.packing);
 
     try {
@@ -118,7 +125,8 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
       });
 
       if (response.ok) {
-        alert('Files uploaded successfully! Click "Parse" to extract data.');
+        const cocMsg = jobState.files.coc ? ' both files' : ' packing slip';
+        alert(`Files uploaded successfully!${cocMsg} Click "Parse" to extract data.`);
         setCurrentStep(2);
       } else {
         alert('Upload failed');
@@ -315,7 +323,9 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
 
                 <h4 className="font-semibold">Upload Documents</h4>
                 <div>
-                  <label className="block text-sm font-medium mb-2">Company COC PDF</label>
+                  <label className="block text-sm font-medium mb-2">
+                    Company COC PDF <span className="text-gray-500 font-normal">(Optional)</span>
+                  </label>
                   <input
                     type="file"
                     accept=".pdf"
@@ -327,7 +337,9 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2">Packing Slip PDF</label>
+                  <label className="block text-sm font-medium mb-2">
+                    Packing Slip PDF <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="file"
                     accept=".pdf"
@@ -340,7 +352,7 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
                 </div>
                 <button
                   onClick={handleUploadFiles}
-                  disabled={loading || !jobState.files?.coc || !jobState.files?.packing}
+                  disabled={loading || !jobState.files?.packing}
                   className="w-full bg-green-600 text-white py-3 rounded hover:bg-green-700 disabled:bg-gray-400 font-medium"
                 >
                   {loading ? 'Uploading...' : 'Upload Files & Continue'}

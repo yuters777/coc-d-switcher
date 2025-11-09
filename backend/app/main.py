@@ -98,17 +98,21 @@ async def get_job(job_id: str):
 @app.post("/api/jobs/{job_id}/files")
 async def upload_job_files(
     job_id: str,
-    company_coc: UploadFile = File(...),
+    company_coc: UploadFile = File(None),
     packing_slip: UploadFile = File(...)
 ):
-    """Upload COC and Packing Slip PDF files for a job"""
+    """Upload COC and/or Packing Slip PDF files for a job (Packing Slip required, COC optional)"""
     logger.info(f"Uploading files for job {job_id}")
 
     if job_id not in jobs_db:
         raise HTTPException(status_code=404, detail="Job not found")
 
+    # Packing slip is required
+    if not packing_slip or not packing_slip.filename:
+        raise HTTPException(status_code=400, detail="Packing slip is required")
+
     # Validate file types
-    if not company_coc.filename.endswith('.pdf'):
+    if company_coc and company_coc.filename and not company_coc.filename.endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Company COC must be a PDF file")
     if not packing_slip.filename.endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Packing slip must be a PDF file")
@@ -117,45 +121,48 @@ async def upload_job_files(
     job_dir = UPLOAD_DIR / job_id
     job_dir.mkdir(parents=True, exist_ok=True)
 
-    # Save files
-    coc_path = job_dir / f"company_coc_{company_coc.filename}"
-    packing_path = job_dir / f"packing_slip_{packing_slip.filename}"
+    files_saved = {}
+    coc_path = None
+    packing_path = None
 
     try:
-        # Write COC file
-        coc_content = await company_coc.read()
-        coc_path.write_bytes(coc_content)
-        logger.info(f"Saved COC file: {coc_path}")
+        # Write COC file if provided
+        if company_coc and company_coc.filename:
+            coc_path = job_dir / f"company_coc_{company_coc.filename}"
+            coc_content = await company_coc.read()
+            coc_path.write_bytes(coc_content)
+            logger.info(f"Saved COC file: {coc_path}")
+            files_saved["company_coc"] = str(coc_path)
 
-        # Write packing slip file
+        # Write packing slip file (required)
+        packing_path = job_dir / f"packing_slip_{packing_slip.filename}"
         packing_content = await packing_slip.read()
         packing_path.write_bytes(packing_content)
         logger.info(f"Saved packing slip file: {packing_path}")
+        files_saved["packing_slip"] = str(packing_path)
 
         # Update job record
-        jobs_db[job_id]["files"] = {
-            "company_coc": str(coc_path),
-            "packing_slip": str(packing_path)
-        }
+        jobs_db[job_id]["files"] = files_saved
         jobs_db[job_id]["status"] = "files_uploaded"
         jobs_db[job_id]["updated_at"] = datetime.utcnow().isoformat()
 
         logger.info(f"Files uploaded successfully for job {job_id}")
 
+        response_files = {"packing_slip": packing_slip.filename}
+        if company_coc and company_coc.filename:
+            response_files["company_coc"] = company_coc.filename
+
         return {
             "message": "Files uploaded successfully",
             "job_id": job_id,
-            "files": {
-                "company_coc": company_coc.filename,
-                "packing_slip": packing_slip.filename
-            }
+            "files": response_files
         }
     except Exception as e:
         logger.error(f"Error uploading files: {e}")
         # Clean up on error
-        if coc_path.exists():
+        if coc_path and coc_path.exists():
             coc_path.unlink()
-        if packing_path.exists():
+        if packing_path and packing_path.exists():
             packing_path.unlink()
         raise HTTPException(status_code=500, detail=f"Failed to upload files: {str(e)}")
 
