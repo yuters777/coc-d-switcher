@@ -459,6 +459,12 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
                   const product = formData.get('product_description') as string;
                   const qty = formData.get('quantity') as string;
 
+                  // Add optional extracted data fields if provided (BEFORE checking for missing)
+                  if (contract && contract.trim() !== '') data.contract_number = contract;
+                  if (shipment && shipment.trim() !== '') data.shipment_no = shipment;
+                  if (product && product.trim() !== '') data.product_description = product;
+                  if (qty && qty.trim() !== '') data.quantity = parseInt(qty);
+
                   // Track which optional fields are missing
                   const missingFields: string[] = [];
                   if (!contract || contract.trim() === '') missingFields.push('Contract Number');
@@ -468,18 +474,12 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
 
                   // If any optional fields are missing, ask for confirmation
                   if (missingFields.length > 0) {
-                    // Store the data and show custom modal
+                    // Store the data (now includes filled optional fields!) and show custom modal
                     setPendingManualData(data);
                     setMissingDataFields(missingFields);
                     setShowMissingDataModal(true);
                     return;
                   }
-
-                  // Add optional extracted data fields if provided
-                  if (contract) data.contract_number = contract;
-                  if (shipment) data.shipment_no = shipment;
-                  if (product) data.product_description = product;
-                  if (qty) data.quantity = parseInt(qty);
 
                   handleManualDataSubmit(data);
                 }} className="space-y-4">
