@@ -338,8 +338,16 @@ async def render_job_document(job_id: str):
             raise HTTPException(status_code=404, detail="No template available. Please upload a template first.")
 
         template_path = Path(template_info["path"])
+
+        # If path is relative, make it relative to the backend directory
+        if not template_path.is_absolute():
+            # Assume it's relative to the backend root (where uvicorn runs)
+            template_path = Path.cwd() / template_path
+
+        logger.info(f"Looking for template at: {template_path}")
+
         if not template_path.exists():
-            raise HTTPException(status_code=404, detail="Template file not found on disk")
+            raise HTTPException(status_code=404, detail=f"Template file not found at: {template_path}")
 
         logger.info(f"Using template: {template_info['name']} v{template_info['version']}")
 
