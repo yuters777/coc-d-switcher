@@ -410,63 +410,142 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
               </div>
             ) : (
               <div className="bg-white rounded-lg shadow p-6">
-                <p className="text-gray-600 mb-4">Enter additional required information</p>
+                <p className="text-gray-600 mb-4">Enter required information and fill in any missing extracted data</p>
 
                 <form onSubmit={(e) => {
                   e.preventDefault();
                   const formData = new FormData(e.currentTarget);
-                  handleManualDataSubmit({
+                  const data: any = {
                     partial_delivery_number: formData.get('partial_delivery_number') as string,
                     undelivered_quantity: formData.get('undelivered_quantity') as string,
                     sw_version: formData.get('sw_version') as string
-                  });
+                  };
+
+                  // Add optional extracted data fields if provided
+                  const contract = formData.get('contract_number') as string;
+                  if (contract) data.contract_number = contract;
+
+                  const shipment = formData.get('shipment_no') as string;
+                  if (shipment) data.shipment_no = shipment;
+
+                  const product = formData.get('product_description') as string;
+                  if (product) data.product_description = product;
+
+                  const qty = formData.get('quantity') as string;
+                  if (qty) data.quantity = parseInt(qty);
+
+                  handleManualDataSubmit(data);
                 }} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Partial Delivery Number <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      name="partial_delivery_number"
-                      placeholder="e.g., 165"
-                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      required
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      The partial delivery sequence number for this shipment
-                    </p>
+
+                  {/* Extracted Data Section - Optional Fields */}
+                  <div className="p-4 bg-blue-50 border border-blue-200 rounded">
+                    <h4 className="font-semibold text-blue-900 mb-3">📄 Extracted Data (Fill in if missing)</h4>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-sm font-medium mb-1">
+                          Contract Number
+                        </label>
+                        <input
+                          type="text"
+                          name="contract_number"
+                          placeholder="e.g., 4500012345"
+                          className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Fill in if missing from extracted data
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium mb-1">
+                          Shipment Number
+                        </label>
+                        <input
+                          type="text"
+                          name="shipment_no"
+                          placeholder="e.g., SH123456"
+                          className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium mb-1">
+                          Product Description
+                        </label>
+                        <input
+                          type="text"
+                          name="product_description"
+                          placeholder="e.g., Radio System XYZ"
+                          className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium mb-1">
+                          Quantity
+                        </label>
+                        <input
+                          type="number"
+                          name="quantity"
+                          placeholder="e.g., 100"
+                          className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Undelivered Quantity <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      name="undelivered_quantity"
-                      placeholder="e.g., 4196 (of 8115)"
-                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      required
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Format: remaining quantity (of total ordered)
-                    </p>
-                  </div>
+                  {/* Manual Data Section - Required Fields */}
+                  <div className="p-4 bg-green-50 border border-green-200 rounded">
+                    <h4 className="font-semibold text-green-900 mb-3">✏️ Manual Data (Required)</h4>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-sm font-medium mb-2">
+                          Partial Delivery Number <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          name="partial_delivery_number"
+                          placeholder="e.g., 165"
+                          className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                          required
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          The partial delivery sequence number for this shipment
+                        </p>
+                      </div>
 
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Software Version <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      name="sw_version"
-                      placeholder="e.g., 2.2.15.45"
-                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      required
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      The software version for this product
-                    </p>
+                      <div>
+                        <label className="block text-sm font-medium mb-2">
+                          Undelivered Quantity <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          name="undelivered_quantity"
+                          placeholder="e.g., 4196 (of 8115)"
+                          className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                          required
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Format: remaining quantity (of total ordered)
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium mb-2">
+                          Software Version <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          name="sw_version"
+                          placeholder="e.g., 2.2.15.45"
+                          className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                          required
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          The software version for this product
+                        </p>
+                      </div>
+                    </div>
                   </div>
 
                   <button

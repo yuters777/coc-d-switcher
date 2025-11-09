@@ -200,6 +200,11 @@ class ManualData(BaseModel):
     partial_delivery_number: str
     undelivered_quantity: str
     sw_version: str
+    # Allow users to fill in missing extracted data
+    contract_number: Optional[str] = None
+    shipment_no: Optional[str] = None
+    product_description: Optional[str] = None
+    quantity: Optional[int] = None
 
 @app.post("/api/jobs/{job_id}/manual")
 async def submit_manual_data(job_id: str, manual_data: ManualData):
@@ -216,7 +221,34 @@ async def submit_manual_data(job_id: str, manual_data: ManualData):
 
     try:
         # Update job record with manual data
-        jobs_db[job_id]["manual_data"] = manual_data.dict()
+        manual_dict = manual_data.dict()
+        jobs_db[job_id]["manual_data"] = manual_dict
+
+        # Merge manual data into extracted data to fill missing fields
+        extracted = jobs_db[job_id].get("extracted_data", {})
+        part_i = extracted.get("part_I", {})
+
+        # Update extracted data with manually provided values
+        if manual_data.contract_number:
+            part_i["contract_number"] = manual_data.contract_number
+        if manual_data.shipment_no:
+            part_i["shipment_no"] = manual_data.shipment_no
+        if manual_data.product_description:
+            items = part_i.get("items", [{}])
+            if not items:
+                items = [{}]
+            items[0]["description"] = manual_data.product_description
+            part_i["items"] = items
+        if manual_data.quantity is not None:
+            items = part_i.get("items", [{}])
+            if not items:
+                items = [{}]
+            items[0]["quantity"] = manual_data.quantity
+            part_i["items"] = items
+
+        extracted["part_I"] = part_i
+        jobs_db[job_id]["extracted_data"] = extracted
+
         jobs_db[job_id]["status"] = "manual_complete"
         jobs_db[job_id]["updated_at"] = datetime.utcnow().isoformat()
 
@@ -225,7 +257,7 @@ async def submit_manual_data(job_id: str, manual_data: ManualData):
         return {
             "message": "Manual data saved successfully",
             "job_id": job_id,
-            "manual_data": manual_data.dict()
+            "manual_data": manual_dict
         }
     except Exception as e:
         logger.error(f"Error saving manual data: {e}")
