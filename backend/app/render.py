@@ -68,6 +68,8 @@ def prepare_template_context(data: Dict[str, Any]) -> Dict[str, Any]:
             "shipment_no": part_i.get("shipment_no", ""),
             "supplier_name": part_i.get("supplier_name", ""),
             "supplier_address": part_i.get("supplier_address", ""),
+            "acquirer": part_i.get("acquirer", ""),
+            "delivery_address": part_i.get("delivery_address", ""),
         })
 
         # Handle items array (get first item if exists)
@@ -78,6 +80,7 @@ def prepare_template_context(data: Dict[str, Any]) -> Dict[str, Any]:
                 "product_description": item.get("description", ""),
                 "quantity": item.get("quantity", ""),
                 "part_number": item.get("part_number", ""),
+                "contract_item": item.get("contract_item", ""),
             })
 
     # Add manual data fields (these override extracted if present)
@@ -99,14 +102,25 @@ def prepare_template_context(data: Dict[str, Any]) -> Dict[str, Any]:
         if manual.get("quantity"):
             context["quantity"] = manual["quantity"]
 
-    # Add metadata
+    # Build remarks field from sw_version and other info
+    remarks_parts = []
+    if context.get("sw_version"):
+        remarks_parts.append(f"SW Ver. # {context['sw_version']}")
+    context["remarks"] = "\n".join(remarks_parts) if remarks_parts else ""
+
+    # Add additional fields expected by template
+    from datetime import datetime
     context.update({
         "job_id": data.get("id", ""),
         "job_name": data.get("name", ""),
         "submitted_by": data.get("submitted_by", ""),
+        "supplier_serial_no": data.get("id", ""),  # Use job_id as serial number
+        "date": datetime.now().strftime("%d/%b/%Y"),
+        "final_delivery_number": "N/A",  # Default value
     })
 
     logger.info(f"Prepared context with {len(context)} variables")
+    logger.debug(f"Context data: {context}")
     return context
 
 
