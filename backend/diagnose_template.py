@@ -190,10 +190,33 @@ def analyze_template(template_path: Path):
         print("   - Template doesn't contain {{ }} tags")
 
 if __name__ == "__main__":
-    template_path = Path("templates/COC_SV_Del165_20.03.2025.docx")
+    import sys
 
-    if not template_path.exists():
-        print(f"ERROR: Template not found at {template_path}")
+    # Check multiple possible locations
+    possible_paths = [
+        Path("templates/d0d00cd7-54a4-4925-a5bd-6965624e82b8_temp_dutch_coc_template.docx"),
+        Path("templates/COC_SV_Del165_20.03.2025.docx"),
+        Path("../templates/d0d00cd7-54a4-4925-a5bd-6965624e82b8_temp_dutch_coc_template.docx"),
+        Path("../templates/COC_SV_Del165_20.03.2025.docx"),
+    ]
+
+    # If filename provided as argument, use that
+    if len(sys.argv) > 1:
+        template_path = Path(sys.argv[1])
+    else:
+        # Find first existing path
+        template_path = None
+        for path in possible_paths:
+            if path.exists():
+                template_path = path
+                break
+
+    if not template_path or not template_path.exists():
+        print(f"ERROR: Template not found!")
+        print(f"\nSearched in:")
+        for path in possible_paths:
+            print(f"  - {path.absolute()}")
+        print(f"\nUsage: python diagnose_template.py [path/to/template.docx]")
         exit(1)
 
     analyze_template(template_path)
