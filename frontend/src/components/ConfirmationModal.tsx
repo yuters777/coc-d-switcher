@@ -82,7 +82,7 @@ export default function ConfirmationModal({
               <ul className="space-y-2">
                 {items.map((item, idx) => (
                   <li key={idx} className="flex items-start gap-2">
-                    <span className="text-gray-600 mt-1">•</span>
+                    <span className="text-gray-600 flex-shrink-0">•</span>
                     <span className="text-gray-800 font-medium">{item}</span>
                   </li>
                 ))}
