@@ -265,6 +265,46 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
     }
   };
 
+  const handleRender = async () => {
+    if (!jobState.jobId) {
+      alert('No job found.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      console.log('Rendering document for job:', jobState.jobId);
+      const response = await fetch(`${API_BASE}/api/jobs/${jobState.jobId}/render`, {
+        method: 'POST'
+      });
+
+      console.log('Render response:', response.status, response.ok);
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Render result:', data);
+        setJobState({
+          ...jobState,
+          renderedFiles: {
+            docx: data.rendered_file,
+            template: data.template_used
+          }
+        });
+        alert('Document rendered successfully! Click "Download" to get your file.');
+        setCurrentStep(6);
+      } else {
+        const errorText = await response.text();
+        console.error('Failed to render:', errorText);
+        alert('Failed to render document: ' + errorText);
+      }
+    } catch (error) {
+      console.error('Render error:', error);
+      alert('Failed to render document: ' + error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleStepClick = (step: WorkflowStep) => {
     console.log('Step clicked:', step, 'Current step:', currentStep);
     // For now, only allow clicking on the current step or completed steps
@@ -742,13 +782,53 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
           <div className="space-y-6">
             <h3 className="text-xl font-semibold">Step 5: Render Document</h3>
             <div className="bg-white rounded-lg shadow p-6">
-              <p className="text-gray-600 mb-4">Generate the Dutch MoD COC document</p>
-              <button
-                onClick={() => alert('Render functionality coming soon')}
-                className="w-full bg-blue-600 text-white py-3 rounded hover:bg-blue-700 font-medium"
-              >
-                Generate Document
-              </button>
+              <p className="text-gray-600 mb-4">Generate the Dutch MoD COC document from template</p>
+
+              {jobState.renderedFiles ? (
+                <div className="space-y-4">
+                  <div className="p-4 bg-green-50 border-2 border-green-300 rounded">
+                    <h4 className="font-semibold text-green-800 mb-2">✓ Document Rendered Successfully</h4>
+                    <div className="text-sm text-green-700 space-y-1">
+                      <p><strong>File:</strong> {jobState.renderedFiles.docx}</p>
+                      <p><strong>Template:</strong> {jobState.renderedFiles.template?.name} v{jobState.renderedFiles.template?.version}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setJobState({ ...jobState, renderedFiles: null })}
+                      className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 font-medium"
+                    >
+                      Re-render Document
+                    </button>
+                    <button
+                      onClick={() => setCurrentStep(6)}
+                      className="flex-1 bg-green-600 text-white py-2 rounded hover:bg-green-700 font-medium"
+                    >
+                      Continue to Download →
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="p-4 bg-blue-50 border border-blue-200 rounded">
+                    <p className="text-sm text-blue-800">
+                      📄 Ready to generate your Dutch MoD Certificate of Conformity
+                    </p>
+                    <p className="text-xs text-blue-600 mt-2">
+                      This will create a DOCX file using the default template and your validated data.
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={handleRender}
+                    disabled={loading}
+                    className="w-full bg-blue-600 text-white py-3 rounded hover:bg-blue-700 disabled:bg-gray-400 font-medium"
+                  >
+                    {loading ? 'Generating Document...' : 'Generate Document'}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         );
@@ -758,13 +838,73 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
           <div className="space-y-6">
             <h3 className="text-xl font-semibold">Step 6: Download Result</h3>
             <div className="bg-white rounded-lg shadow p-6">
-              <p className="text-gray-600 mb-4">Download the generated documents</p>
-              <button
-                onClick={() => alert('Download functionality coming soon')}
-                className="w-full bg-green-600 text-white py-3 rounded hover:bg-green-700 font-medium"
-              >
-                Download COC-D
-              </button>
+              <p className="text-gray-600 mb-4">Download your generated Dutch MoD COC document</p>
+
+              {jobState.renderedFiles ? (
+                <div className="space-y-4">
+                  <div className="p-4 bg-green-50 border-2 border-green-300 rounded">
+                    <h4 className="font-semibold text-green-800 mb-2">🎉 Conversion Complete!</h4>
+                    <div className="text-sm text-green-700 space-y-2">
+                      <p>Your COC-D document has been successfully generated and is ready for download.</p>
+                      <div className="mt-3 p-3 bg-white rounded border border-green-200">
+                        <p className="font-semibold">Document Details:</p>
+                        <p className="text-xs mt-1"><strong>Job:</strong> {jobState.name}</p>
+                        <p className="text-xs"><strong>File:</strong> {jobState.renderedFiles.docx}</p>
+                        <p className="text-xs"><strong>Template:</strong> {jobState.renderedFiles.template?.name} v{jobState.renderedFiles.template?.version}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      window.open(`${API_BASE}/api/jobs/${jobState.jobId}/download`, '_blank');
+                    }}
+                    className="w-full bg-green-600 text-white py-3 rounded hover:bg-green-700 font-medium flex items-center justify-center gap-2"
+                  >
+                    <span>⬇️</span>
+                    <span>Download COC-D Document</span>
+                  </button>
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setCurrentStep(5)}
+                      className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 text-sm"
+                    >
+                      ← Back to Render
+                    </button>
+                    <button
+                      onClick={() => {
+                        setCurrentStep(1);
+                        setJobState({
+                          jobId: null,
+                          name: '',
+                          submittedBy: '',
+                          files: null,
+                          extractedData: null,
+                          manualData: null,
+                          validationResult: null,
+                          renderedFiles: null
+                        });
+                      }}
+                      className="flex-1 bg-gray-600 text-white py-2 rounded hover:bg-gray-700 text-sm"
+                    >
+                      Start New Job
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 bg-yellow-50 border border-yellow-300 rounded">
+                  <p className="text-sm text-yellow-800">
+                    ⚠️ No document has been rendered yet. Please go back to Step 5 and generate the document first.
+                  </p>
+                  <button
+                    onClick={() => setCurrentStep(5)}
+                    className="mt-3 w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+                  >
+                    Go to Step 5: Render
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         );

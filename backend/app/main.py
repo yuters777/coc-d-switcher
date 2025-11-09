@@ -314,6 +314,87 @@ async def validate_job_data(job_id: str):
         logger.error(f"Error validating data: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to validate data: {str(e)}")
 
+@app.post("/api/jobs/{job_id}/render")
+async def render_job_document(job_id: str):
+    """Render the COC-D document from template and job data"""
+    logger.info(f"Rendering document for job {job_id}")
+
+    if job_id not in jobs_db:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    job = jobs_db[job_id]
+
+    # Check that we have the necessary data
+    if "extracted_data" not in job or not job["extracted_data"]:
+        raise HTTPException(status_code=400, detail="No extracted data available for rendering")
+
+    if "manual_data" not in job or not job["manual_data"]:
+        raise HTTPException(status_code=400, detail="Manual data must be submitted before rendering")
+
+    try:
+        # Get the default template
+        template_info = templates.get_default_template()
+        if not template_info:
+            raise HTTPException(status_code=404, detail="No template available. Please upload a template first.")
+
+        template_path = Path(template_info["path"])
+        if not template_path.exists():
+            raise HTTPException(status_code=404, detail="Template file not found on disk")
+
+        logger.info(f"Using template: {template_info['name']} v{template_info['version']}")
+
+        # Render the document
+        rendered_path = render_docx(
+            template_path=template_path,
+            data=job,
+            job_id=job_id
+        )
+
+        # Update job record
+        jobs_db[job_id]["rendered_file"] = str(rendered_path)
+        jobs_db[job_id]["status"] = "rendered"
+        jobs_db[job_id]["updated_at"] = datetime.utcnow().isoformat()
+
+        logger.info(f"Document rendered successfully for job {job_id}: {rendered_path}")
+
+        return {
+            "message": "Document rendered successfully",
+            "job_id": job_id,
+            "rendered_file": rendered_path.name,
+            "template_used": {
+                "name": template_info["name"],
+                "version": template_info["version"]
+            }
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error rendering document: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to render document: {str(e)}")
+
+@app.get("/api/jobs/{job_id}/download")
+async def download_rendered_document(job_id: str):
+    """Download the rendered COC-D document"""
+    logger.info(f"Downloading document for job {job_id}")
+
+    if job_id not in jobs_db:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    job = jobs_db[job_id]
+
+    if "rendered_file" not in job or not job["rendered_file"]:
+        raise HTTPException(status_code=400, detail="Document has not been rendered yet")
+
+    rendered_path = Path(job["rendered_file"])
+    if not rendered_path.exists():
+        raise HTTPException(status_code=404, detail="Rendered file not found on disk")
+
+    return FileResponse(
+        path=rendered_path,
+        filename=rendered_path.name,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+
 # Template Management Endpoints
 @app.get("/api/templates")
 async def list_templates():
