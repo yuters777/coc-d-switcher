@@ -95,6 +95,70 @@ async def get_job(job_id: str):
         raise HTTPException(status_code=404, detail="Job not found")
     return jobs_db[job_id]
 
+@app.post("/api/jobs/{job_id}/files")
+async def upload_job_files(
+    job_id: str,
+    company_coc: UploadFile = File(...),
+    packing_slip: UploadFile = File(...)
+):
+    """Upload COC and Packing Slip PDF files for a job"""
+    logger.info(f"Uploading files for job {job_id}")
+
+    if job_id not in jobs_db:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    # Validate file types
+    if not company_coc.filename.endswith('.pdf'):
+        raise HTTPException(status_code=400, detail="Company COC must be a PDF file")
+    if not packing_slip.filename.endswith('.pdf'):
+        raise HTTPException(status_code=400, detail="Packing slip must be a PDF file")
+
+    # Create job-specific directory
+    job_dir = UPLOAD_DIR / job_id
+    job_dir.mkdir(parents=True, exist_ok=True)
+
+    # Save files
+    coc_path = job_dir / f"company_coc_{company_coc.filename}"
+    packing_path = job_dir / f"packing_slip_{packing_slip.filename}"
+
+    try:
+        # Write COC file
+        coc_content = await company_coc.read()
+        coc_path.write_bytes(coc_content)
+        logger.info(f"Saved COC file: {coc_path}")
+
+        # Write packing slip file
+        packing_content = await packing_slip.read()
+        packing_path.write_bytes(packing_content)
+        logger.info(f"Saved packing slip file: {packing_path}")
+
+        # Update job record
+        jobs_db[job_id]["files"] = {
+            "company_coc": str(coc_path),
+            "packing_slip": str(packing_path)
+        }
+        jobs_db[job_id]["status"] = "files_uploaded"
+        jobs_db[job_id]["updated_at"] = datetime.utcnow().isoformat()
+
+        logger.info(f"Files uploaded successfully for job {job_id}")
+
+        return {
+            "message": "Files uploaded successfully",
+            "job_id": job_id,
+            "files": {
+                "company_coc": company_coc.filename,
+                "packing_slip": packing_slip.filename
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error uploading files: {e}")
+        # Clean up on error
+        if coc_path.exists():
+            coc_path.unlink()
+        if packing_path.exists():
+            packing_path.unlink()
+        raise HTTPException(status_code=500, detail=f"Failed to upload files: {str(e)}")
+
 # Template Management Endpoints
 @app.get("/api/templates")
 async def list_templates():
