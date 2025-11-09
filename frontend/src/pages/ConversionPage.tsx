@@ -1,6 +1,7 @@
 // frontend/src/pages/ConversionPage.tsx
 import React, { useState } from 'react';
 import AppNav from '../components/AppNav';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 interface ConversionPageProps {
   onSettingsClick: () => void;
@@ -32,6 +33,9 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
     renderedFiles: null
   });
   const [loading, setLoading] = useState(false);
+  const [showMissingDataModal, setShowMissingDataModal] = useState(false);
+  const [missingDataFields, setMissingDataFields] = useState<string[]>([]);
+  const [pendingManualData, setPendingManualData] = useState<any>(null);
 
   const API_BASE = 'http://localhost:8000';
 
@@ -436,11 +440,11 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
 
                   // If any optional fields are missing, ask for confirmation
                   if (missingFields.length > 0) {
-                    const message = `⚠️ Missing Extracted Data\n\nThe following fields are empty:\n${missingFields.map(f => '• ' + f).join('\n')}\n\nThese fields are optional, but leaving them empty may cause validation errors later.\n\n❓ Do you want to:\n\n• Click "Cancel" to go back and fill them in\n• Click "OK" to proceed anyway (you can fix validation errors later if needed)`;
-
-                    if (!confirm(message)) {
-                      return; // User chose to go back and fill in the fields
-                    }
+                    // Store the data and show custom modal
+                    setPendingManualData(data);
+                    setMissingDataFields(missingFields);
+                    setShowMissingDataModal(true);
+                    return;
                   }
 
                   // Add optional extracted data fields if provided
@@ -710,6 +714,31 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
   return (
     <div className="min-h-screen bg-gray-50">
       <AppNav title="COC-D Switcher" onSettingsClick={onSettingsClick} />
+
+      {/* Confirmation Modal for Missing Data */}
+      <ConfirmationModal
+        isOpen={showMissingDataModal}
+        title="Missing Extracted Data"
+        message="The following fields are empty. These fields are optional, but leaving them empty may cause validation errors later."
+        items={missingDataFields}
+        onConfirm={() => {
+          // User confirmed - proceed with incomplete data
+          setShowMissingDataModal(false);
+          if (pendingManualData) {
+            handleManualDataSubmit(pendingManualData);
+            setPendingManualData(null);
+          }
+        }}
+        onCancel={() => {
+          // User cancelled - stay on form to fill in fields
+          setShowMissingDataModal(false);
+          setPendingManualData(null);
+          setMissingDataFields([]);
+        }}
+        confirmText="Proceed Anyway"
+        cancelText="Go Back & Fill In"
+        type="warning"
+      />
 
       <div className="container mx-auto p-6 max-w-5xl">
         {/* Debug info */}
