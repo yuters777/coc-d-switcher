@@ -421,17 +421,32 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
                     sw_version: formData.get('sw_version') as string
                   };
 
-                  // Add optional extracted data fields if provided
+                  // Check for optional extracted data fields
                   const contract = formData.get('contract_number') as string;
-                  if (contract) data.contract_number = contract;
-
                   const shipment = formData.get('shipment_no') as string;
-                  if (shipment) data.shipment_no = shipment;
-
                   const product = formData.get('product_description') as string;
-                  if (product) data.product_description = product;
-
                   const qty = formData.get('quantity') as string;
+
+                  // Track which optional fields are missing
+                  const missingFields: string[] = [];
+                  if (!contract || contract.trim() === '') missingFields.push('Contract Number');
+                  if (!shipment || shipment.trim() === '') missingFields.push('Shipment Number');
+                  if (!product || product.trim() === '') missingFields.push('Product Description');
+                  if (!qty || qty.trim() === '') missingFields.push('Quantity');
+
+                  // If any optional fields are missing, ask for confirmation
+                  if (missingFields.length > 0) {
+                    const message = `⚠️ Missing Extracted Data\n\nThe following fields are empty:\n${missingFields.map(f => '• ' + f).join('\n')}\n\nThese fields are optional, but leaving them empty may cause validation errors later.\n\n❓ Do you want to:\n\n• Click "Cancel" to go back and fill them in\n• Click "OK" to proceed anyway (you can fix validation errors later if needed)`;
+
+                    if (!confirm(message)) {
+                      return; // User chose to go back and fill in the fields
+                    }
+                  }
+
+                  // Add optional extracted data fields if provided
+                  if (contract) data.contract_number = contract;
+                  if (shipment) data.shipment_no = shipment;
+                  if (product) data.product_description = product;
                   if (qty) data.quantity = parseInt(qty);
 
                   handleManualDataSubmit(data);
