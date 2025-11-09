@@ -641,8 +641,31 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
                   {/* Action buttons */}
                   <div className="space-y-2">
                     {jobState.validationResult.errors && jobState.validationResult.errors.length > 0 ? (
-                      <div className="text-center text-sm text-red-600 py-2">
-                        Please fix the errors above before proceeding.
+                      <div className="space-y-2">
+                        <div className="text-center text-sm text-gray-600 py-2 bg-gray-50 rounded border border-gray-200">
+                          <p className="font-semibold mb-1">You have {jobState.validationResult.errors.length} validation error(s)</p>
+                          <p className="text-xs">Choose an option below:</p>
+                        </div>
+
+                        <button
+                          onClick={() => setCurrentStep(3)}
+                          className="w-full bg-blue-600 text-white py-3 rounded hover:bg-blue-700 font-medium flex items-center justify-center gap-2"
+                        >
+                          <span>←</span>
+                          <span>Go Back to Step 3 to Fix Missing Data</span>
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            if (confirm('⚠️ WARNING: Skipping Validation\n\nYou have validation errors. Proceeding without fixing them may result in:\n• Incomplete or incorrect documents\n• Missing required information\n• Processing failures\n\nThis is NOT recommended unless you know what you\'re doing.\n\nAre you sure you want to skip validation and proceed anyway?')) {
+                              setCurrentStep(5);
+                            }
+                          }}
+                          className="w-full bg-orange-500 text-white py-2 rounded hover:bg-orange-600 font-medium text-sm flex items-center justify-center gap-2"
+                        >
+                          <span>⚠️</span>
+                          <span>Skip Validation (Not Recommended)</span>
+                        </button>
                       </div>
                     ) : (
                       <button
@@ -655,7 +678,7 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
                     <button
                       onClick={handleValidate}
                       disabled={loading}
-                      className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:bg-gray-400"
+                      className="w-full bg-gray-600 text-white py-2 rounded hover:bg-gray-700 disabled:bg-gray-400"
                     >
                       {loading ? 'Validating...' : 'Re-validate'}
                     </button>
