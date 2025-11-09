@@ -796,7 +796,7 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
         isOpen={showValidationErrorModal}
         title="Validation Errors Found"
         message="The following validation errors were found. You can fix them or proceed anyway (not recommended)."
-        items={jobState.validationResult?.errors?.map((err: any) => `${err.code}: ${err.message}`) || []}
+        items={jobState.validationResult?.errors?.map((err: any) => err.message) || []}
         onConfirm={() => {
           // User wants to skip validation
           setShowValidationErrorModal(false);
