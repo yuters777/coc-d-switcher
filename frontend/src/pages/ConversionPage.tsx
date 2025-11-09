@@ -206,6 +206,51 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
     }
   };
 
+  const handleValidate = async () => {
+    if (!jobState.jobId) {
+      alert('No job found.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      console.log('Validating data for job:', jobState.jobId);
+      const response = await fetch(`${API_BASE}/api/jobs/${jobState.jobId}/validate`, {
+        method: 'POST'
+      });
+
+      console.log('Validation response:', response.status, response.ok);
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Validation result:', data);
+        setJobState({
+          ...jobState,
+          validationResult: data.validation
+        });
+
+        if (data.has_errors) {
+          alert(`Validation completed with ${data.validation.errors.length} error(s). Please review and fix before proceeding.`);
+        } else if (data.has_warnings) {
+          alert(`Validation completed with ${data.validation.warnings.length} warning(s). You may proceed to render.`);
+          setCurrentStep(5);
+        } else {
+          alert('Validation passed! All data is valid. Click "Render" to generate the document.');
+          setCurrentStep(5);
+        }
+      } else {
+        const errorText = await response.text();
+        console.error('Failed to validate:', errorText);
+        alert('Failed to validate data: ' + errorText);
+      }
+    } catch (error) {
+      console.error('Validation error:', error);
+      alert('Failed to validate data: ' + error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleStepClick = (step: WorkflowStep) => {
     console.log('Step clicked:', step, 'Current step:', currentStep);
     // For now, only allow clicking on the current step or completed steps
@@ -443,12 +488,90 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
             <h3 className="text-xl font-semibold">Step 4: Validate Data</h3>
             <div className="bg-white rounded-lg shadow p-6">
               <p className="text-gray-600 mb-4">Verify all extracted and manual data</p>
-              <button
-                onClick={() => alert('Validation functionality coming soon')}
-                className="w-full bg-blue-600 text-white py-3 rounded hover:bg-blue-700 font-medium"
-              >
-                Validate Data
-              </button>
+
+              {jobState.validationResult ? (
+                <div className="space-y-4">
+                  {/* Errors */}
+                  {jobState.validationResult.errors && jobState.validationResult.errors.length > 0 && (
+                    <div className="p-4 bg-red-50 border-2 border-red-300 rounded">
+                      <h4 className="font-semibold text-red-800 mb-2">
+                        ❌ Errors ({jobState.validationResult.errors.length})
+                      </h4>
+                      <div className="space-y-2">
+                        {jobState.validationResult.errors.map((error: any, idx: number) => (
+                          <div key={idx} className="text-sm">
+                            <p className="font-semibold text-red-700">{error.code}</p>
+                            <p className="text-red-600">{error.message}</p>
+                            <p className="text-xs text-red-500">Location: {error.where}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Warnings */}
+                  {jobState.validationResult.warnings && jobState.validationResult.warnings.length > 0 && (
+                    <div className="p-4 bg-yellow-50 border-2 border-yellow-300 rounded">
+                      <h4 className="font-semibold text-yellow-800 mb-2">
+                        ⚠️ Warnings ({jobState.validationResult.warnings.length})
+                      </h4>
+                      <div className="space-y-2">
+                        {jobState.validationResult.warnings.map((warning: any, idx: number) => (
+                          <div key={idx} className="text-sm">
+                            <p className="font-semibold text-yellow-700">{warning.code}</p>
+                            <p className="text-yellow-600">{warning.message}</p>
+                            <p className="text-xs text-yellow-500">Location: {warning.where}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Success */}
+                  {(!jobState.validationResult.errors || jobState.validationResult.errors.length === 0) &&
+                   (!jobState.validationResult.warnings || jobState.validationResult.warnings.length === 0) && (
+                    <div className="p-4 bg-green-50 border-2 border-green-300 rounded">
+                      <h4 className="font-semibold text-green-800">
+                        ✓ Validation Passed
+                      </h4>
+                      <p className="text-sm text-green-600 mt-1">
+                        All data is valid and ready for document generation.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Action buttons */}
+                  <div className="space-y-2">
+                    {jobState.validationResult.errors && jobState.validationResult.errors.length > 0 ? (
+                      <div className="text-center text-sm text-red-600 py-2">
+                        Please fix the errors above before proceeding.
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setCurrentStep(5)}
+                        className="w-full bg-green-600 text-white py-3 rounded hover:bg-green-700 font-medium"
+                      >
+                        Continue to Render →
+                      </button>
+                    )}
+                    <button
+                      onClick={handleValidate}
+                      disabled={loading}
+                      className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:bg-gray-400"
+                    >
+                      {loading ? 'Validating...' : 'Re-validate'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={handleValidate}
+                  disabled={loading}
+                  className="w-full bg-blue-600 text-white py-3 rounded hover:bg-blue-700 disabled:bg-gray-400 font-medium"
+                >
+                  {loading ? 'Validating...' : 'Validate Data'}
+                </button>
+              )}
             </div>
           </div>
         );

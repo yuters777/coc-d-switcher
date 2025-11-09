@@ -231,6 +231,50 @@ async def submit_manual_data(job_id: str, manual_data: ManualData):
         logger.error(f"Error saving manual data: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to save manual data: {str(e)}")
 
+@app.post("/api/jobs/{job_id}/validate")
+async def validate_job_data(job_id: str):
+    """Validate all collected data for a job"""
+    logger.info(f"Validating data for job {job_id}")
+
+    if job_id not in jobs_db:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    job = jobs_db[job_id]
+
+    if "extracted_data" not in job or not job["extracted_data"]:
+        raise HTTPException(status_code=400, detail="No extracted data to validate")
+
+    if "manual_data" not in job or not job["manual_data"]:
+        raise HTTPException(status_code=400, detail="Manual data must be submitted before validation")
+
+    try:
+        # Combine all data for validation
+        validation_data = {
+            **job["extracted_data"],
+            "manual_data": job["manual_data"]
+        }
+
+        # Run validation
+        validation_result = validate_conversion(validation_data)
+
+        # Update job record
+        jobs_db[job_id]["validation"] = validation_result
+        jobs_db[job_id]["status"] = "validated"
+        jobs_db[job_id]["updated_at"] = datetime.utcnow().isoformat()
+
+        logger.info(f"Validation complete for job {job_id}: {len(validation_result['errors'])} errors, {len(validation_result['warnings'])} warnings")
+
+        return {
+            "message": "Validation complete",
+            "job_id": job_id,
+            "validation": validation_result,
+            "has_errors": len(validation_result["errors"]) > 0,
+            "has_warnings": len(validation_result["warnings"]) > 0
+        }
+    except Exception as e:
+        logger.error(f"Error validating data: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to validate data: {str(e)}")
+
 # Template Management Endpoints
 @app.get("/api/templates")
 async def list_templates():
