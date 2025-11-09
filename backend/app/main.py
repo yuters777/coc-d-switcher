@@ -196,6 +196,41 @@ async def parse_job_files(job_id: str):
         logger.error(f"Error parsing files: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to parse files: {str(e)}")
 
+class ManualData(BaseModel):
+    partial_delivery_number: str
+    undelivered_quantity: str
+    sw_version: str
+
+@app.post("/api/jobs/{job_id}/manual")
+async def submit_manual_data(job_id: str, manual_data: ManualData):
+    """Submit manual data for a job"""
+    logger.info(f"Submitting manual data for job {job_id}: {manual_data}")
+
+    if job_id not in jobs_db:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    job = jobs_db[job_id]
+
+    if "extracted_data" not in job or not job["extracted_data"]:
+        raise HTTPException(status_code=400, detail="Files must be parsed before adding manual data")
+
+    try:
+        # Update job record with manual data
+        jobs_db[job_id]["manual_data"] = manual_data.dict()
+        jobs_db[job_id]["status"] = "manual_complete"
+        jobs_db[job_id]["updated_at"] = datetime.utcnow().isoformat()
+
+        logger.info(f"Manual data saved successfully for job {job_id}")
+
+        return {
+            "message": "Manual data saved successfully",
+            "job_id": job_id,
+            "manual_data": manual_data.dict()
+        }
+    except Exception as e:
+        logger.error(f"Error saving manual data: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to save manual data: {str(e)}")
+
 # Template Management Endpoints
 @app.get("/api/templates")
 async def list_templates():

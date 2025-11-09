@@ -163,6 +163,49 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
     }
   };
 
+  const handleManualDataSubmit = async (manualData: {
+    partial_delivery_number: string;
+    undelivered_quantity: string;
+    sw_version: string;
+  }) => {
+    if (!jobState.jobId) {
+      alert('No job found.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      console.log('Submitting manual data for job:', jobState.jobId, manualData);
+      const response = await fetch(`${API_BASE}/api/jobs/${jobState.jobId}/manual`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(manualData)
+      });
+
+      console.log('Manual data response:', response.status, response.ok);
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Manual data saved:', data);
+        setJobState({
+          ...jobState,
+          manualData: data.manual_data
+        });
+        alert('Manual data saved successfully! Click "Validate" to verify all data.');
+        setCurrentStep(4);
+      } else {
+        const errorText = await response.text();
+        console.error('Failed to save manual data:', errorText);
+        alert('Failed to save manual data: ' + errorText);
+      }
+    } catch (error) {
+      console.error('Manual data error:', error);
+      alert('Failed to save manual data: ' + error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleStepClick = (step: WorkflowStep) => {
     console.log('Step clicked:', step, 'Current step:', currentStep);
     // For now, only allow clicking on the current step or completed steps
@@ -302,15 +345,95 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
         return (
           <div className="space-y-6">
             <h3 className="text-xl font-semibold">Step 3: Manual Data Entry</h3>
-            <div className="bg-white rounded-lg shadow p-6">
-              <p className="text-gray-600 mb-4">Enter additional required information</p>
-              <button
-                onClick={() => alert('Manual input functionality coming soon')}
-                className="w-full bg-blue-600 text-white py-3 rounded hover:bg-blue-700 font-medium"
-              >
-                Enter Manual Data
-              </button>
-            </div>
+
+            {jobState.manualData ? (
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded">
+                  <p className="text-sm text-green-800 font-semibold mb-2">✓ Manual data submitted successfully</p>
+                  <div className="text-xs text-gray-600 space-y-1">
+                    <p><strong>Partial Delivery #:</strong> {jobState.manualData.partial_delivery_number}</p>
+                    <p><strong>Undelivered Quantity:</strong> {jobState.manualData.undelivered_quantity}</p>
+                    <p><strong>Software Version:</strong> {jobState.manualData.sw_version}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setCurrentStep(4)}
+                  className="w-full bg-green-600 text-white py-3 rounded hover:bg-green-700 font-medium"
+                >
+                  Continue to Validation →
+                </button>
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg shadow p-6">
+                <p className="text-gray-600 mb-4">Enter additional required information</p>
+
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  const formData = new FormData(e.currentTarget);
+                  handleManualDataSubmit({
+                    partial_delivery_number: formData.get('partial_delivery_number') as string,
+                    undelivered_quantity: formData.get('undelivered_quantity') as string,
+                    sw_version: formData.get('sw_version') as string
+                  });
+                }} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      Partial Delivery Number <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="partial_delivery_number"
+                      placeholder="e.g., 165"
+                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      The partial delivery sequence number for this shipment
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      Undelivered Quantity <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="undelivered_quantity"
+                      placeholder="e.g., 4196 (of 8115)"
+                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Format: remaining quantity (of total ordered)
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      Software Version <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="sw_version"
+                      placeholder="e.g., 2.2.15.45"
+                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      The software version for this product
+                    </p>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full bg-green-600 text-white py-3 rounded hover:bg-green-700 disabled:bg-gray-400 font-medium"
+                  >
+                    {loading ? 'Saving...' : 'Save and Continue'}
+                  </button>
+                </form>
+              </div>
+            )}
           </div>
         );
 
