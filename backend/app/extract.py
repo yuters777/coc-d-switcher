@@ -102,9 +102,11 @@ def extract_company_coc(pdf_path: str) -> Dict[str, Any]:
 
                 # Extract Product info
                 # Pattern: "20580903700 PNR-1000N WPTT" or similar
+                # Need to be careful not to capture too much
                 product_patterns = [
-                    r'(\d{11})[;\s]+(PNR-[\w\s]+)',
-                    r'(\d{11})\s+([\w\s-]+(?:PNR|PSR|Radio|System)[\w\s-]*)',
+                    r'(\d{11})\s+(PNR-\S+\s+\w+)',  # More specific: code + PNR-XXX + one word
+                    r'(\d{11})[;\s]+(PNR-[\w-]+(?:\s+\w+)?)',  # code; PNR-XXX optionally one more word
+                    r'(\d{11})\s+([\w-]+Radio[\w\s-]*)',
                 ]
                 for pattern in product_patterns:
                     product_match = re.search(pattern, text)
@@ -116,53 +118,72 @@ def extract_company_coc(pdf_path: str) -> Dict[str, Any]:
                         break
 
                 # Extract Quantity
-                # Pattern: "QTY Order ... 100" or "Quantity: 100"
+                # Pattern: Look for quantity field - should be 1-4 digits, not 11 digits
+                # Avoid matching product codes (11 digits)
                 qty_patterns = [
-                    r'QTY\s+Order.*?\n\s*(\d+)',
-                    r'Quantity[:\s]+(\d+)',
-                    r'QTY[:\s]+(\d+)',
+                    r'(?:QTY|Quantity)\s+(?:Order|Shipped)[:\s]+(\d{1,4})(?:\s|$)',  # 1-4 digits only
+                    r'Quantity[:\s]+(\d{1,4})(?:\s|$)',
+                    r'QTY[:\s]+(\d{1,4})(?:\s|$)',
+                    r'(?:QTY|Quantity).*?(?:Shipped|Delivered)[:\s]+(\d{1,4})',
                 ]
                 for pattern in qty_patterns:
                     qty_match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
                     if qty_match:
-                        data['quantity'] = int(qty_match.group(1))
-                        logger.info(f"Found quantity: {data['quantity']}")
-                        break
+                        qty_value = int(qty_match.group(1))
+                        # Sanity check - quantity should be reasonable (1-10000)
+                        if 1 <= qty_value <= 10000:
+                            data['quantity'] = qty_value
+                            logger.info(f"Found quantity: {data['quantity']}")
+                            break
 
                 # Extract Serial Numbers
                 # Pattern: Multiple lines with format "NL13721", "NL13722", etc.
-                serial_section = re.search(r'Serial\s+Number.*?((?:NL\d+[\s\n]+)+)', text, re.DOTALL | re.IGNORECASE)
-                if serial_section:
-                    serial_text = serial_section.group(1)
-                    serials = re.findall(r'NL\d+', serial_text)
-                    data['serials'] = serials
-                    data['serial_count'] = len(serials)
-                    logger.info(f"Found {len(serials)} serial numbers")
+                # Look for the serial number section and extract all NL##### patterns
+                serial_section_match = re.search(r'Serial\s+Number.*?(?=We certify|Quality|$)', text, re.DOTALL | re.IGNORECASE)
+                if serial_section_match:
+                    serial_text = serial_section_match.group(0)
+                    serials = re.findall(r'NL\d{5}', serial_text)  # NL followed by exactly 5 digits
+                    if serials:
+                        data['serials'] = serials
+                        data['serial_count'] = len(serials)
+                        logger.info(f"Found {len(serials)} serial numbers (first: {serials[0]}, last: {serials[-1]})")
+                else:
+                    # Fallback: search entire document for NL##### patterns
+                    serials = re.findall(r'NL\d{5}', text)
+                    if serials:
+                        data['serials'] = serials
+                        data['serial_count'] = len(serials)
+                        logger.info(f"Found {len(serials)} serial numbers via fallback search")
 
                 # Extract Customer/Acquirer
                 # Pattern: "NETHERLANDS MINISTRY OF DEFENCE" or similar
                 customer_patterns = [
-                    r'(?:Customer|Acquirer)[:\s]+([\w\s]+?)(?:\n|$)',
-                    r'NETHERLANDS MINISTRY OF DEFENCE',
+                    r'(?:Customer|Acquirer)[:\s]+\n?([\w\s]+?)(?:\n\n|\nPart\s+number|$)',
+                    r'(NETHERLANDS MINISTRY OF DEFENCE)',
                 ]
                 for pattern in customer_patterns:
-                    customer_match = re.search(pattern, text, re.IGNORECASE)
+                    customer_match = re.search(pattern, text, re.IGNORECASE | re.MULTILINE)
                     if customer_match:
-                        if isinstance(customer_match.group(0), str) and 'NETHERLANDS' in customer_match.group(0):
-                            data['customer'] = customer_match.group(0)
-                        else:
+                        if len(customer_match.groups()) > 0:
                             data['customer'] = customer_match.group(1).strip()
-                        logger.info(f"Found customer: {data.get('customer')}")
+                        else:
+                            data['customer'] = customer_match.group(0).strip()
+                        # Clean up any extra newlines or "Customer" prefix
+                        data['customer'] = re.sub(r'^Customer\s*', '', data['customer'], flags=re.IGNORECASE)
+                        data['customer'] = data['customer'].strip()
+                        logger.info(f"Found customer: {data['customer']}")
                         break
 
                 # Extract QA Signer and Date
                 # Pattern: "YESHAYA ORLY 20/Mar/2025" or similar
+                # Need to capture name (letters and spaces only) before date
                 qa_patterns = [
-                    r'Quality\s+Authority.*?\n([\w\s]+)\s+(\d+/\w+/\d+)',
-                    r'QA.*?\n([\w\s]+)\s+(\d+/\w+/\d+)',
+                    r'Quality\s+Authority.*?\n([A-Z][A-Z\s]+?)\s+\d+\s+(\d+/\w+/\d+)',  # Name, then number, then date
+                    r'Quality\s+Authority.*?\n([A-Z][A-Z\s]+?)\s+(\d+/\w+/\d+)',  # Name directly before date
+                    r'QA.*?\n([A-Z][A-Z\s]+?)\s+(\d+/\w+/\d+)',
                 ]
                 for pattern in qa_patterns:
-                    qa_match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
+                    qa_match = re.search(pattern, text, re.DOTALL)
                     if qa_match:
                         data['qa_signer'] = qa_match.group(1).strip()
                         data['date'] = qa_match.group(2)
@@ -196,12 +217,18 @@ def extract_packing_slip(pdf_path: str) -> Dict[str, Any]:
                 logger.debug(f"Packing Slip PDF text (first 500 chars): {text[:500]}")
 
                 # Extract Ship To address
-                ship_to_match = re.search(r'Ship\s+To[:\s]+([\s\S]+?)(?:Sold\s+To|Contract|$)', text, re.IGNORECASE)
+                ship_to_match = re.search(r'Ship\s+To[:\s]+([\s\S]+?)(?:Sold\s+To|Contract|Our\s+Reference)', text, re.IGNORECASE)
                 if ship_to_match:
                     data['ship_to'] = ship_to_match.group(1).strip()
-                    # Clean up - take first few lines
-                    ship_lines = data['ship_to'].split('\n')[:4]
-                    data['ship_to'] = '\n'.join(line.strip() for line in ship_lines if line.strip())
+                    # Clean up - take first few lines, remove "Sold To:" if it appears
+                    ship_lines = data['ship_to'].split('\n')[:5]
+                    cleaned_lines = []
+                    for line in ship_lines:
+                        line = line.strip()
+                        # Skip lines that contain "Sold To" or "BCD"
+                        if line and not re.search(r'Sold\s+To|^BCD\s', line, re.IGNORECASE):
+                            cleaned_lines.append(line)
+                    data['ship_to'] = '\n'.join(cleaned_lines)
                     logger.info(f"Found ship to: {data['ship_to'][:50]}...")
 
                 # Extract Contract number
@@ -273,14 +300,14 @@ def merge_extracted_data(coc_data: Dict, ps_data: Dict) -> Dict[str, Any]:
     """
     merged = {}
 
-    # Contract number - prefer COC, fallback to PS
-    merged['contract_number'] = coc_data.get('contract_number') or ps_data.get('contract_number') or ''
+    # Contract number - prefer PS (more reliable), fallback to COC
+    merged['contract_number'] = ps_data.get('contract_number') or coc_data.get('contract_number') or ''
 
     # Shipment number - only from COC
     merged['shipment_no'] = coc_data.get('shipment_no') or ''
 
-    # Quantity - prefer COC, fallback to PS
-    merged['quantity'] = coc_data.get('quantity') or ps_data.get('quantity') or 0
+    # Quantity - prefer PS (more reliable format), fallback to COC
+    merged['quantity'] = ps_data.get('quantity') or coc_data.get('quantity') or 0
 
     # Serial numbers - only from COC
     merged['serials'] = coc_data.get('serials', [])
