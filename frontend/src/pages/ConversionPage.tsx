@@ -37,8 +37,36 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
   const [missingDataFields, setMissingDataFields] = useState<string[]>([]);
   const [pendingManualData, setPendingManualData] = useState<any>(null);
   const [showValidationErrorModal, setShowValidationErrorModal] = useState(false);
+  const [previousNames, setPreviousNames] = useState<string[]>([]);
 
   const API_BASE = 'http://localhost:8000';
+
+  // Load previous names from localStorage on component mount
+  React.useEffect(() => {
+    const storedNames = localStorage.getItem('coc_previous_names');
+    if (storedNames) {
+      try {
+        const names = JSON.parse(storedNames);
+        setPreviousNames(names);
+      } catch (e) {
+        console.error('Error loading previous names:', e);
+      }
+    }
+  }, []);
+
+  // Save name to localStorage when creating a job
+  const saveNameToHistory = (name: string) => {
+    if (!name || name.trim() === '') return;
+
+    const trimmedName = name.trim();
+    // Add to list if not already present
+    const updatedNames = previousNames.includes(trimmedName)
+      ? previousNames
+      : [trimmedName, ...previousNames].slice(0, 10); // Keep only last 10 names
+
+    setPreviousNames(updatedNames);
+    localStorage.setItem('coc_previous_names', JSON.stringify(updatedNames));
+  };
 
   const steps = [
     { number: 1, name: 'Upload', description: 'Upload COC & Packing Slip PDFs' },
@@ -73,6 +101,10 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
       if (response.ok) {
         const data = await response.json();
         console.log('Job created:', data);
+
+        // Save the name to history for future use
+        saveNameToHistory(jobState.submittedBy);
+
         setJobState({ ...jobState, jobId: data.job_id });
         alert('Job created! Now upload your files.');
       } else {
@@ -325,31 +357,57 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
 
             {!jobState.jobId ? (
               <div className="bg-white rounded-lg shadow p-6 space-y-4">
-                <h4 className="font-semibold">Create New Job</h4>
+                <h4 className="font-semibold text-lg mb-2">Create New Job</h4>
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded text-sm text-blue-800 mb-4">
+                  <p className="font-medium mb-1">ℹ️ About these fields:</p>
+                  <ul className="text-xs space-y-1 ml-4 list-disc">
+                    <li><strong>Job Name:</strong> Used for job identification and displayed in the download summary</li>
+                    <li><strong>Your Name:</strong> Tracks who created this job (stored in job record)</li>
+                  </ul>
+                </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Job Name</label>
+                  <label className="block text-sm font-medium mb-1">
+                    Job Name <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="text"
                     value={jobState.name}
                     onChange={(e) => setJobState({ ...jobState, name: e.target.value })}
-                    placeholder="e.g., Shipment 12345"
-                    className="w-full p-2 border rounded"
+                    placeholder="e.g., Shipment 6SH264587 or Contract 697.12.5011.01"
+                    className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500"
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Identifier for this conversion job
+                  </p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Your Name</label>
+                  <label className="block text-sm font-medium mb-1">
+                    Your Name <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="text"
+                    list="previous-names"
                     value={jobState.submittedBy}
                     onChange={(e) => setJobState({ ...jobState, submittedBy: e.target.value })}
                     placeholder="e.g., John Doe"
-                    className="w-full p-2 border rounded"
+                    className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500"
+                    autoComplete="off"
                   />
+                  <datalist id="previous-names">
+                    {previousNames.map((name, index) => (
+                      <option key={index} value={name} />
+                    ))}
+                  </datalist>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {previousNames.length > 0
+                      ? "Select from previously used names or type a new one"
+                      : "Your name will be saved for future jobs"}
+                  </p>
                 </div>
                 <button
                   onClick={handleCreateJob}
                   disabled={loading}
-                  className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:bg-gray-400"
+                  className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:bg-gray-400 font-medium"
                 >
                   {loading ? 'Creating...' : 'Create Job'}
                 </button>
@@ -849,6 +907,7 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
                       <div className="mt-3 p-3 bg-white rounded border border-green-200">
                         <p className="font-semibold">Document Details:</p>
                         <p className="text-xs mt-1"><strong>Job:</strong> {jobState.name}</p>
+                        <p className="text-xs"><strong>Submitted by:</strong> {jobState.submittedBy}</p>
                         <p className="text-xs"><strong>File:</strong> {jobState.renderedFiles.docx}</p>
                         <p className="text-xs"><strong>Template:</strong> {jobState.renderedFiles.template?.name} v{jobState.renderedFiles.template?.version}</p>
                       </div>
