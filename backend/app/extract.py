@@ -6,7 +6,8 @@ from datetime import datetime
 from .config import load_config
 import logging
 
-logger = logging.getLogger(__name__)
+# Use uvicorn logger to ensure logs appear in console
+logger = logging.getLogger("uvicorn")
 
 def extract_from_pdfs(company_coc_path: Optional[str], packing_slip_path: Optional[str]) -> Dict[str, Any]:
     """Extract data from PDFs using pdfplumber"""
