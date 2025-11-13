@@ -88,11 +88,12 @@ def extract_company_coc(pdf_path: str) -> Dict[str, Any]:
                         break
 
                 # Extract COC Number
-                # Pattern: "COC011285" or "COC No: COC011285"
+                # Pattern: "COC011285" - COC followed by exactly 6 digits
+                # The COC number is a standalone identifier, not part of other numbers
                 coc_patterns = [
-                    r'COC\s*(?:No|Number)?[.:\s]*([A-Z0-9]{9})',  # COC followed by alphanumeric
-                    r'(COC\d{6})',  # COC followed by 6 digits
-                    r'Certificate\s+(?:No|Number)[:\s]+(COC\d{6})',
+                    r'\b(COC\d{6})\b',  # COC followed by exactly 6 digits (word boundaries)
+                    r'COC\s*(?:No\.?|Number)[:\s]+(COC\d{6})',  # "COC No: COC011285" format
+                    r'Certificate\s+(?:No|Number)[:\s]+(COC\d{6})',  # "Certificate No: COC011285"
                 ]
                 for pattern in coc_patterns:
                     coc_match = re.search(pattern, text, re.IGNORECASE)
