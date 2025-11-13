@@ -596,7 +596,10 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
 
                   {/* Extracted Data Section - Optional Fields */}
                   <div className="p-4 bg-blue-50 border border-blue-200 rounded">
-                    <h4 className="font-semibold text-blue-900 mb-3">📄 Extracted Data (Fill in if missing)</h4>
+                    <h4 className="font-semibold text-blue-900 mb-3">📄 Extracted Data from PDFs</h4>
+                    <p className="text-xs text-gray-600 mb-3">
+                      These fields were automatically extracted. Verify the values and fill in any missing data.
+                    </p>
                     <div className="space-y-3">
                       <div>
                         <label className="block text-sm font-medium mb-1">
@@ -605,12 +608,15 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
                         <input
                           type="text"
                           name="contract_number"
-                          placeholder="e.g., 4500012345"
+                          defaultValue={jobState.extractedData?.part_I?.contract_number || ''}
+                          placeholder={jobState.extractedData?.part_I?.contract_number ? '' : 'Enter contract number if missing'}
                           className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
                         />
-                        <p className="text-xs text-gray-500 mt-1">
-                          Fill in if missing from extracted data
-                        </p>
+                        {jobState.extractedData?.part_I?.contract_number && (
+                          <p className="text-xs text-green-600 mt-1">
+                            ✓ Auto-filled from PDF
+                          </p>
+                        )}
                       </div>
 
                       <div>
@@ -620,9 +626,15 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
                         <input
                           type="text"
                           name="shipment_no"
-                          placeholder="e.g., SH123456"
+                          defaultValue={jobState.extractedData?.part_I?.shipment_no || ''}
+                          placeholder={jobState.extractedData?.part_I?.shipment_no ? '' : 'Enter shipment number if missing'}
                           className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
                         />
+                        {jobState.extractedData?.part_I?.shipment_no && (
+                          <p className="text-xs text-green-600 mt-1">
+                            ✓ Auto-filled from PDF
+                          </p>
+                        )}
                       </div>
 
                       <div>
@@ -632,9 +644,15 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
                         <input
                           type="text"
                           name="product_description"
-                          placeholder="e.g., Radio System XYZ"
+                          defaultValue={jobState.extractedData?.part_I?.product_description || ''}
+                          placeholder={jobState.extractedData?.part_I?.product_description ? '' : 'Enter product description if missing'}
                           className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
                         />
+                        {jobState.extractedData?.part_I?.product_description && (
+                          <p className="text-xs text-green-600 mt-1">
+                            ✓ Auto-filled from PDF
+                          </p>
+                        )}
                       </div>
 
                       <div>
@@ -644,9 +662,15 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
                         <input
                           type="number"
                           name="quantity"
-                          placeholder="e.g., 100"
+                          defaultValue={jobState.extractedData?.part_I?.quantity || ''}
+                          placeholder={jobState.extractedData?.part_I?.quantity ? '' : 'Enter quantity if missing'}
                           className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
                         />
+                        {jobState.extractedData?.part_I?.quantity && (
+                          <p className="text-xs text-green-600 mt-1">
+                            ✓ Auto-filled from PDF
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
