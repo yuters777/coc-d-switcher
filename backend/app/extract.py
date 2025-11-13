@@ -87,6 +87,20 @@ def extract_company_coc(pdf_path: str) -> Dict[str, Any]:
                         logger.info(f"Found contract number: {data['contract_number']}")
                         break
 
+                # Extract COC Number
+                # Pattern: "COC011285" or "COC No: COC011285"
+                coc_patterns = [
+                    r'COC\s*(?:No|Number)?[.:\s]*([A-Z0-9]{9})',  # COC followed by alphanumeric
+                    r'(COC\d{6})',  # COC followed by 6 digits
+                    r'Certificate\s+(?:No|Number)[:\s]+(COC\d{6})',
+                ]
+                for pattern in coc_patterns:
+                    coc_match = re.search(pattern, text, re.IGNORECASE)
+                    if coc_match:
+                        data['coc_no'] = coc_match.group(1)
+                        logger.info(f"Found COC number: {data['coc_no']}")
+                        break
+
                 # Extract Shipment number
                 # Pattern: "Shipment no. 6SH264587" or "Shipment: 6SH264587"
                 shipment_patterns = [
@@ -302,6 +316,9 @@ def merge_extracted_data(coc_data: Dict, ps_data: Dict) -> Dict[str, Any]:
 
     # Contract number - prefer PS (more reliable), fallback to COC
     merged['contract_number'] = ps_data.get('contract_number') or coc_data.get('contract_number') or ''
+
+    # COC Number - only from COC
+    merged['coc_no'] = coc_data.get('coc_no') or ''
 
     # Shipment number - only from COC
     merged['shipment_no'] = coc_data.get('shipment_no') or ''
