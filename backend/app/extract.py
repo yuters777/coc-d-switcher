@@ -259,6 +259,29 @@ def extract_packing_slip(pdf_path: str) -> Dict[str, Any]:
                         logger.info(f"Found contract: {data['contract_number']}")
                         break
 
+                # Extract Shipment Number
+                # Pattern: "Packing Slip 6SH264587" in header or title
+                shipment_patterns = [
+                    r'Packing\s+Slip\s+(\w+)',  # "Packing Slip 6SH264587"
+                    r'Shipment[:\s]+(\w+)',     # "Shipment: 6SH264587"
+                    r'Shipment\s+no[.:\s]+(\w+)',  # "Shipment no. 6SH264587"
+                ]
+                for pattern in shipment_patterns:
+                    shipment_match = re.search(pattern, text, re.IGNORECASE)
+                    if shipment_match:
+                        data['shipment_no'] = shipment_match.group(1)
+                        logger.info(f"Found shipment number from PS: {data['shipment_no']}")
+                        break
+
+                # Fallback: Extract from filename if not found in text
+                if 'shipment_no' not in data:
+                    filename = Path(pdf_path).name
+                    # Pattern: "Packing_Slip_6SH264587.pdf" or "Packing Slip_6SH264587.pdf"
+                    filename_match = re.search(r'Packing[_\s]Slip[_\s](\w+)\.pdf', filename, re.IGNORECASE)
+                    if filename_match:
+                        data['shipment_no'] = filename_match.group(1)
+                        logger.info(f"Found shipment number from filename: {data['shipment_no']}")
+
                 # Extract Customer Item
                 cust_item_match = re.search(r'Customers?\s+Item[:\s]+(\d+)', text, re.IGNORECASE)
                 if cust_item_match:
@@ -322,8 +345,8 @@ def merge_extracted_data(coc_data: Dict, ps_data: Dict) -> Dict[str, Any]:
     # COC Number - only from COC
     merged['coc_no'] = coc_data.get('coc_no') or ''
 
-    # Shipment number - only from COC
-    merged['shipment_no'] = coc_data.get('shipment_no') or ''
+    # Shipment number - prefer COC, fallback to PS (header/filename)
+    merged['shipment_no'] = coc_data.get('shipment_no') or ps_data.get('shipment_no') or ''
 
     # Quantity - prefer PS (more reliable format), fallback to COC
     merged['quantity'] = ps_data.get('quantity') or coc_data.get('quantity') or 0
