@@ -80,7 +80,7 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
   const handleCreateJob = async () => {
     console.log('Create job clicked', jobState);
     if (!jobState.name || !jobState.submittedBy) {
-      alert('Please enter job name and your name');
+      return; // Form validation
       return;
     }
 
@@ -106,15 +106,15 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
         saveNameToHistory(jobState.submittedBy);
 
         setJobState({ ...jobState, jobId: data.job_id });
-        alert('Job created! Now upload your files.');
+
       } else {
         const errorText = await response.text();
         console.error('Failed to create job:', errorText);
-        alert('Failed to create job: ' + errorText);
+        console.error('Failed to create job:', errorText);
       }
     } catch (error) {
       console.error('Create job error:', error);
-      alert('Failed to create job: ' + error);
+      console.error('Failed to create job:', error);
     } finally {
       setLoading(false);
     }
@@ -135,7 +135,7 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
 
     // Packing slip is required, COC is optional
     if (!jobState.files?.packing) {
-      alert('Please select at least the Packing Slip PDF');
+      return; // Validation handled by UI
       return;
     }
 
@@ -161,11 +161,11 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
         alert(`Files uploaded successfully!${cocMsg} Click "Parse" to extract data.`);
         setCurrentStep(2);
       } else {
-        alert('Upload failed');
+        console.error('Upload failed');
       }
     } catch (error) {
       console.error('Upload error:', error);
-      alert('Upload failed: ' + error);
+      console.error('Upload failed:', error);
     } finally {
       setLoading(false);
     }
@@ -173,7 +173,7 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
 
   const handleParse = async () => {
     if (!jobState.jobId) {
-      alert('No job found. Please create a job and upload files first.');
+      console.error('No job found'); return;
       return;
     }
 
@@ -193,16 +193,16 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
           ...jobState,
           extractedData: data.extracted_data
         });
-        alert('Documents parsed successfully! Click "Manual" to add additional data.');
+        // Auto-progress to manual step
         setCurrentStep(3);
       } else {
         const errorText = await response.text();
         console.error('Failed to parse:', errorText);
-        alert('Failed to parse documents: ' + errorText);
+        console.error('Failed to parse documents:', errorText);
       }
     } catch (error) {
       console.error('Parse error:', error);
-      alert('Failed to parse documents: ' + error);
+      console.error('Failed to parse documents:', error);
     } finally {
       setLoading(false);
     }
@@ -214,7 +214,7 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
     sw_version: string;
   }) => {
     if (!jobState.jobId) {
-      alert('No job found.');
+      console.error('No job found'); return;
       return;
     }
 
@@ -236,16 +236,16 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
           ...jobState,
           manualData: data.manual_data
         });
-        alert('Manual data saved successfully! Click "Validate" to verify all data.');
+        // Auto-progress to validate step
         setCurrentStep(4);
       } else {
         const errorText = await response.text();
         console.error('Failed to save manual data:', errorText);
-        alert('Failed to save manual data: ' + errorText);
+        console.error('Failed to save manual data:', errorText);
       }
     } catch (error) {
       console.error('Manual data error:', error);
-      alert('Failed to save manual data: ' + error);
+      console.error('Failed to save manual data:', error);
     } finally {
       setLoading(false);
     }
@@ -253,7 +253,7 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
 
   const handleValidate = async () => {
     if (!jobState.jobId) {
-      alert('No job found.');
+      console.error('No job found'); return;
       return;
     }
 
@@ -281,17 +281,17 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
           alert(`Validation completed with ${data.validation.warnings.length} warning(s). You may proceed to render.`);
           setCurrentStep(5);
         } else {
-          alert('Validation passed! All data is valid. Click "Render" to generate the document.');
+          // Auto-progress to render step
           setCurrentStep(5);
         }
       } else {
         const errorText = await response.text();
         console.error('Failed to validate:', errorText);
-        alert('Failed to validate data: ' + errorText);
+        console.error('Failed to validate data:', errorText);
       }
     } catch (error) {
       console.error('Validation error:', error);
-      alert('Failed to validate data: ' + error);
+      console.error('Failed to validate data:', error);
     } finally {
       setLoading(false);
     }
@@ -299,7 +299,7 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
 
   const handleRender = async () => {
     if (!jobState.jobId) {
-      alert('No job found.');
+      console.error('No job found'); return;
       return;
     }
 
@@ -322,16 +322,16 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
             template: data.template_used
           }
         });
-        alert('Document rendered successfully! Click "Download" to get your file.');
+        // Auto-progress to download
         setCurrentStep(6);
       } else {
         const errorText = await response.text();
         console.error('Failed to render:', errorText);
-        alert('Failed to render document: ' + errorText);
+        console.error('Failed to render document:', errorText);
       }
     } catch (error) {
       console.error('Render error:', error);
-      alert('Failed to render document: ' + error);
+      console.error('Failed to render document:', error);
     } finally {
       setLoading(false);
     }
