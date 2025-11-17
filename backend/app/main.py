@@ -125,7 +125,8 @@ async def parse_documents(job_id: str):
     jobs_db[job_id]['extracted_data'] = extracted_data
     jobs_db[job_id]['updated_at'] = datetime.utcnow().isoformat()
 
-    return extracted_data
+    # Return wrapped in expected structure for frontend
+    return {"extracted_data": extracted_data}
 
 @app.post("/api/jobs/{job_id}/manual")
 async def save_manual_data(job_id: str, manual_data: dict):
