@@ -15,8 +15,7 @@ export default function FileUpload({ jobId, onUploadComplete }: FileUploadProps)
 
   const handleUpload = async () => {
     if (!files.coc || !files.packing) {
-      alert('Please select both files');
-      return;
+      return; // Button is disabled, so this shouldn't happen
     }
 
     setUploading(true);
@@ -29,13 +28,14 @@ export default function FileUpload({ jobId, onUploadComplete }: FileUploadProps)
         method: 'POST',
         body: formData
       });
-      
+
       if (response.ok) {
-        alert('Files uploaded successfully');
+        // Auto-progress to next step
         onUploadComplete();
       }
     } catch (error) {
-      alert('Upload failed: ' + error);
+      console.error('Upload failed:', error);
+      // Error handling can be improved with inline message later
     } finally {
       setUploading(false);
     }

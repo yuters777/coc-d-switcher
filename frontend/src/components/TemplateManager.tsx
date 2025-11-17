@@ -48,8 +48,7 @@ export default function TemplateManager() {
 
   const handleUpload = async () => {
     if (!uploadData.file || !uploadData.name || !uploadData.version) {
-      alert('Please fill in all fields');
-      return;
+      return; // Form validation will prevent this
     }
 
     const formData = new FormData();
@@ -66,20 +65,16 @@ export default function TemplateManager() {
       });
 
       if (response.ok) {
-        const result = await response.json();
-        console.log('Upload successful:', result);
-        alert('Template uploaded successfully');
+        // Success - close form and refresh list
         setShowUpload(false);
         setUploadData({ file: null, name: '', version: '', set_as_default: false });
-        await loadTemplates();
+        loadTemplates();
       } else {
         const error = await response.json();
-        console.error('Upload failed with error:', error);
-        alert(`Upload failed: ${error.detail || 'Unknown error'}`);
+        console.error('Upload failed:', error.detail);
       }
     } catch (error) {
       console.error('Upload error:', error);
-      alert(`Upload failed: ${error instanceof Error ? error.message : 'Network error or CORS issue'}`);
     } finally {
       setUploading(false);
     }
@@ -113,7 +108,7 @@ export default function TemplateManager() {
         loadTemplates();
       } else {
         const error = await response.json();
-        alert(`Delete failed: ${error.detail}`);
+        console.error('Delete failed:', error.detail);
       }
     } catch (error) {
       console.error('Failed to delete:', error);
