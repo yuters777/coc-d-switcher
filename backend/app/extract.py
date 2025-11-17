@@ -8,21 +8,57 @@ def extract_from_pdfs(company_coc_path: Optional[str], packing_slip_path: Option
     """Extract data from PDFs"""
     config = load_config()
 
+    # TODO: Implement actual PDF extraction logic
+    # For now, return structure with empty template_vars that user will fill in manually
+
     result = {
-        "extracted": {"from_packing_slip": {}, "from_company_coc": {}},
-        "part_I": {},
-        "part_II": {},
+        "template_vars": {
+            "contract_number": "",
+            "shipment_no": "",
+            "product_description": "",
+            "quantity": "",
+            "supplier_serial_no": "",
+            "manufacturing_date": "",
+            "delivery_date": "",
+            "invoice_no": "",
+            "invoice_date": "",
+            "final_delivery_number": "",
+            "date": datetime.now().strftime("%d.%m.%Y")
+        },
+        "part_I": {
+            "serial_numbers": [],
+            "serial_count": 0
+        },
+        "part_II": {
+            "test_results": []
+        },
+        "extracted": {
+            "from_packing_slip": {},
+            "from_company_coc": {}
+        },
         "render_vars": {
             "docx_template": "COC_SV_Del165_20.03.2025.docx",
             "output_filename": "",
             "date_format_display": "DD/Mon/YYYY",
             "date_format_filename": "DD.MM.YYYY"
         },
-        "validation": {"errors": [], "warnings": []}
+        "validation": {
+            "errors": [],
+            "warnings": []
+        }
     }
 
-    # Implementation would extract from actual PDFs
-    # For now, return sample structure
+    # If PDF paths are provided, attempt to extract data
+    if packing_slip_path:
+        # TODO: Extract data from packing slip PDF
+        # This would use PyPDF2 or similar to read the PDF and extract fields
+        pass
+
+    if company_coc_path:
+        # TODO: Extract data from company COC PDF
+        # This would use PyPDF2 or similar to read the PDF and extract fields
+        pass
+
     return result
 
 def normalize_date(date_str: str, output_format: str = "display") -> str:
