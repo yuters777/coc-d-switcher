@@ -1,142 +1,71 @@
 from pathlib import Path
-from typing import Dict, Any, Optional
-from docxtpl import DocxTemplate
+from typing import Dict, Any
+import json
+import os
 import tempfile
-import logging
+from datetime import datetime
 
-logger = logging.getLogger(__name__)
+TEMPLATE_PATH = os.getenv("TEMPLATE_PATH", "templates/COC_SV_Del165_20.03.2025.docx")
 
-def render_docx(template_path: Path, data: Dict[str, Any], job_id: str) -> Path:
-    """
-    Render DOCX from template and conversion data
-
-    Args:
-        template_path: Path to the template DOCX file
-        data: Dictionary with template variables (extracted_data + manual_data)
-        job_id: Job ID for output filename
-
-    Returns:
-        Path to the rendered DOCX file
-    """
-    logger.info(f"Rendering DOCX for job {job_id} with template {template_path}")
-
-    # Create output path in temp directory
-    output_dir = Path(tempfile.gettempdir()) / "coc-rendered"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / f"COC-D_{job_id}.docx"
-
-    try:
-        # Load template
-        doc = DocxTemplate(template_path)
-
-        # Flatten the data structure for easier template access
-        context = prepare_template_context(data)
-
-        logger.info(f"Rendering with context keys: {list(context.keys())}")
-
-        # Render the template
-        doc.render(context)
-
-        # Save rendered document
-        doc.save(output_path)
-
-        logger.info(f"Successfully rendered document to {output_path}")
-        return output_path
-
-    except Exception as e:
-        logger.error(f"Error rendering template: {e}")
-        raise
-
-
-def prepare_template_context(data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Prepare template context from job data
-
-    Flattens the data structure so template can use {{ contract_number }}
-    instead of {{ part_I.contract_number }}
-    """
-    context = {}
-
-    # Get extracted data (part_I contains most fields)
-    extracted = data.get("extracted_data", {})
-    part_i = extracted.get("part_I", {})
-
-    # Flatten part_I fields to top level
-    if part_i:
-        context.update({
-            "contract_number": part_i.get("contract_number", ""),
-            "shipment_no": part_i.get("shipment_no", ""),
-            "supplier_name": part_i.get("supplier_name", ""),
-            "supplier_address": part_i.get("supplier_address", ""),
-            "acquirer": part_i.get("acquirer", ""),
-            "delivery_address": part_i.get("delivery_address", ""),
-        })
-
-        # Handle items array (get first item if exists)
-        items = part_i.get("items", [])
-        if items and len(items) > 0:
-            item = items[0]
-            context.update({
-                "product_description": item.get("description", ""),
-                "quantity": item.get("quantity", ""),
-                "part_number": item.get("part_number", ""),
-                "contract_item": item.get("contract_item", ""),
-            })
-
-    # Add manual data fields (these override extracted if present)
-    manual = data.get("manual_data", {})
-    if manual:
-        context.update({
-            "partial_delivery_number": manual.get("partial_delivery_number", ""),
-            "undelivered_quantity": manual.get("undelivered_quantity", ""),
-            "sw_version": manual.get("sw_version", ""),
-        })
-
-        # Manual data can also override extracted data
-        if manual.get("contract_number"):
-            context["contract_number"] = manual["contract_number"]
-        if manual.get("shipment_no"):
-            context["shipment_no"] = manual["shipment_no"]
-        if manual.get("product_description"):
-            context["product_description"] = manual["product_description"]
-        if manual.get("quantity"):
-            context["quantity"] = manual["quantity"]
-
-    # Build remarks field from sw_version and other info
-    remarks_parts = []
-    if context.get("sw_version"):
-        remarks_parts.append(f"SW Ver. # {context['sw_version']}")
-    context["remarks"] = "\n".join(remarks_parts) if remarks_parts else ""
-
-    # Add additional fields expected by template
-    from datetime import datetime
-    context.update({
-        "job_id": data.get("id", ""),
-        "job_name": data.get("name", ""),
-        "submitted_by": data.get("submitted_by", ""),
-        "supplier_serial_no": data.get("id", ""),  # Use job_id as serial number
-        "date": datetime.now().strftime("%d/%b/%Y"),
-        "final_delivery_number": "N/A",  # Default value
-    })
-
-    logger.info(f"Prepared context with {len(context)} variables")
-    logger.debug(f"Context data: {context}")
+def prepare_context(template_vars: Dict[str, Any]) -> Dict[str, Any]:
+    """Prepare rendering context with all required variables"""
+    context = {
+        "supplier_serial_no": template_vars.get("supplier_serial_no", ""),
+        "contract_number": template_vars.get("contract_number", ""),
+        "acquirer": template_vars.get("acquirer", ""),
+        "delivery_address": template_vars.get("delivery_address", ""),
+        "partial_delivery_number": template_vars.get("partial_delivery_number", ""),
+        "final_delivery_number": template_vars.get("final_delivery_number", "N/A"),
+        "contract_item": template_vars.get("contract_item", ""),
+        "product_description": template_vars.get("product_description", ""),
+        "quantity": template_vars.get("quantity", ""),
+        "shipment_no": template_vars.get("shipment_no", ""),
+        "undelivered_quantity": template_vars.get("undelivered_quantity", ""),
+        "remarks": template_vars.get("remarks", ""),
+        "date": template_vars.get("date", datetime.now().strftime("%d.%m.%Y"))
+    }
     return context
 
+def render_docx(conv_json: Dict[str, Any], job_id: str) -> Path:
+    """Render DOCX from conversion data
+
+    Args:
+        conv_json: Conversion data including template_vars and manual_data
+        job_id: Job identifier
+
+    Returns:
+        Path to rendered DOCX file with pattern: COC_SV_Del{DeliveryID}_{DD.MM.YYYY}.docx
+    """
+    # Extract delivery number from manual data or template vars
+    delivery_num = "000"
+    if "manual_data" in conv_json:
+        delivery_num = conv_json["manual_data"].get("partial_delivery_number", "000")
+    elif "template_vars" in conv_json:
+        delivery_num = conv_json["template_vars"].get("partial_delivery_number", "000")
+    elif "partial_delivery_number" in conv_json:
+        delivery_num = conv_json.get("partial_delivery_number", "000")
+
+    # Generate filename with current date in DD.MM.YYYY format
+    date_str = datetime.now().strftime("%d.%m.%Y")
+    filename = f"COC_SV_Del{delivery_num}_{date_str}.docx"
+
+    # Use cross-platform temporary directory
+    temp_dir = Path(tempfile.gettempdir())
+    out_path = temp_dir / filename
+
+    # In production, use docxtpl with actual template
+    # For now, create placeholder
+    with open(out_path, 'w') as f:
+        json.dump(conv_json, f, indent=2)
+
+    return out_path
 
 def convert_to_pdf(docx_path: Path) -> Path:
-    """
-    Convert DOCX to PDF using LibreOffice headless
-
-    Note: Requires LibreOffice to be installed on the system
-    For now, this is a placeholder
-    """
+    """Convert DOCX to PDF"""
     pdf_path = docx_path.with_suffix(".pdf")
 
-    # TODO: Implement actual conversion using LibreOffice
-    # Command: libreoffice --headless --convert-to pdf --outdir <dir> <file>
+    # In production, use LibreOffice headless conversion
     # For now, create placeholder
-    logger.warning("PDF conversion not yet implemented - creating placeholder")
-    pdf_path.write_text(f"PDF version of {docx_path.name}\nPDF conversion requires LibreOffice installation.")
+    pdf_path.write_text(f"PDF version of {docx_path.name}")
 
     return pdf_path

@@ -1,14 +1,12 @@
 import os
-import logging
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
+import tempfile
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
-from fastapi.exceptions import RequestValidationError
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Dict, Any, List, Optional
 import uuid
 import json
-import tempfile
 from datetime import datetime
 from pathlib import Path
 
@@ -17,32 +15,10 @@ from .extract import extract_from_pdfs
 from .validate import validate_conversion
 from .render import render_docx, convert_to_pdf
 from .config import load_config
-from . import templates
 
 app = FastAPI(title="COC-D Switcher API")
 
-logger = logging.getLogger("uvicorn")
-
-@app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    """Custom handler to log validation errors for debugging"""
-    body = None
-    try:
-        body = await request.body()
-        body_text = body.decode('utf-8') if body else "empty"
-    except:
-        body_text = "could not decode"
-
-    logger.error(f"Validation error on {request.method} {request.url.path}")
-    logger.error(f"Request body: {body_text}")
-    logger.error(f"Errors: {exc.errors()}")
-
-    return JSONResponse(
-        status_code=422,
-        content={"detail": exc.errors(), "body": body_text}
-    )
-
-cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://10.2.11.7:5173,http://127.0.0.1:5173").split(",")
+cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
 
 app.add_middleware(
     CORSMiddleware,
@@ -53,9 +29,9 @@ app.add_middleware(
 )
 
 jobs_db: Dict[str, Dict[str, Any]] = {}
-# Use cross-platform temp directory or local uploads folder
+# Use cross-platform temporary directory
 UPLOAD_DIR = Path(tempfile.gettempdir()) / "coc-uploads"
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+UPLOAD_DIR.mkdir(exist_ok=True, parents=True)
 
 class JobCreate(BaseModel):
     name: str
@@ -67,8 +43,6 @@ async def root():
 
 @app.post("/api/jobs")
 async def create_job(job: JobCreate):
-    logger.info(f"Creating job: name={job.name}, submitted_by={job.submitted_by}")
-
     job_id = str(uuid.uuid4())
     jobs_db[job_id] = {
         "id": job_id,
@@ -82,7 +56,6 @@ async def create_job(job: JobCreate):
         "validation": None,
         "rendered_files": {}
     }
-    logger.info(f"Job created successfully: {job_id}")
     return {"job_id": job_id}
 
 @app.get("/api/jobs")
@@ -94,395 +67,3 @@ async def get_job(job_id: str):
     if job_id not in jobs_db:
         raise HTTPException(status_code=404, detail="Job not found")
     return jobs_db[job_id]
-
-@app.post("/api/jobs/{job_id}/files")
-async def upload_job_files(
-    job_id: str,
-    company_coc: UploadFile = File(None),
-    packing_slip: UploadFile = File(...)
-):
-    """Upload COC and/or Packing Slip PDF files for a job (Packing Slip required, COC optional)"""
-    logger.info(f"Uploading files for job {job_id}")
-
-    if job_id not in jobs_db:
-        raise HTTPException(status_code=404, detail="Job not found")
-
-    # Packing slip is required
-    if not packing_slip or not packing_slip.filename:
-        raise HTTPException(status_code=400, detail="Packing slip is required")
-
-    # Validate file types
-    if company_coc and company_coc.filename and not company_coc.filename.endswith('.pdf'):
-        raise HTTPException(status_code=400, detail="Company COC must be a PDF file")
-    if not packing_slip.filename.endswith('.pdf'):
-        raise HTTPException(status_code=400, detail="Packing slip must be a PDF file")
-
-    # Create job-specific directory
-    job_dir = UPLOAD_DIR / job_id
-    job_dir.mkdir(parents=True, exist_ok=True)
-
-    files_saved = {}
-    coc_path = None
-    packing_path = None
-
-    try:
-        # Write COC file if provided
-        if company_coc and company_coc.filename:
-            coc_path = job_dir / f"company_coc_{company_coc.filename}"
-            coc_content = await company_coc.read()
-            coc_path.write_bytes(coc_content)
-            logger.info(f"Saved COC file: {coc_path}")
-            files_saved["company_coc"] = str(coc_path)
-
-        # Write packing slip file (required)
-        packing_path = job_dir / f"packing_slip_{packing_slip.filename}"
-        packing_content = await packing_slip.read()
-        packing_path.write_bytes(packing_content)
-        logger.info(f"Saved packing slip file: {packing_path}")
-        files_saved["packing_slip"] = str(packing_path)
-
-        # Update job record
-        jobs_db[job_id]["files"] = files_saved
-        jobs_db[job_id]["status"] = "files_uploaded"
-        jobs_db[job_id]["updated_at"] = datetime.utcnow().isoformat()
-
-        logger.info(f"Files uploaded successfully for job {job_id}")
-
-        response_files = {"packing_slip": packing_slip.filename}
-        if company_coc and company_coc.filename:
-            response_files["company_coc"] = company_coc.filename
-
-        return {
-            "message": "Files uploaded successfully",
-            "job_id": job_id,
-            "files": response_files
-        }
-    except Exception as e:
-        logger.error(f"Error uploading files: {e}")
-        # Clean up on error
-        if coc_path and coc_path.exists():
-            coc_path.unlink()
-        if packing_path and packing_path.exists():
-            packing_path.unlink()
-        raise HTTPException(status_code=500, detail=f"Failed to upload files: {str(e)}")
-
-@app.post("/api/jobs/{job_id}/parse")
-async def parse_job_files(job_id: str):
-    """Parse uploaded PDF files and extract data"""
-    logger.info(f"Parsing files for job {job_id}")
-
-    if job_id not in jobs_db:
-        raise HTTPException(status_code=404, detail="Job not found")
-
-    job = jobs_db[job_id]
-
-    if "files" not in job or not job["files"]:
-        raise HTTPException(status_code=400, detail="No files uploaded for this job")
-
-    try:
-        # Extract data from PDFs
-        coc_path = job["files"].get("company_coc")
-        packing_path = job["files"].get("packing_slip")
-
-        logger.info(f"Extracting data from: COC={coc_path}, Packing={packing_path}")
-        extracted_data = extract_from_pdfs(coc_path, packing_path)
-
-        # Update job record
-        jobs_db[job_id]["extracted_data"] = extracted_data
-        jobs_db[job_id]["status"] = "parsed"
-        jobs_db[job_id]["updated_at"] = datetime.utcnow().isoformat()
-
-        logger.info(f"Files parsed successfully for job {job_id}")
-
-        return {
-            "message": "Files parsed successfully",
-            "job_id": job_id,
-            "extracted_data": extracted_data
-        }
-    except Exception as e:
-        logger.error(f"Error parsing files: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to parse files: {str(e)}")
-
-class ManualData(BaseModel):
-    partial_delivery_number: str
-    undelivered_quantity: str
-    sw_version: str
-    # Allow users to fill in missing extracted data
-    contract_number: Optional[str] = None
-    shipment_no: Optional[str] = None
-    product_description: Optional[str] = None
-    quantity: Optional[int] = None
-
-@app.post("/api/jobs/{job_id}/manual")
-async def submit_manual_data(job_id: str, manual_data: ManualData):
-    """Submit manual data for a job"""
-    logger.info(f"Submitting manual data for job {job_id}: {manual_data}")
-
-    if job_id not in jobs_db:
-        raise HTTPException(status_code=404, detail="Job not found")
-
-    job = jobs_db[job_id]
-
-    if "extracted_data" not in job or not job["extracted_data"]:
-        raise HTTPException(status_code=400, detail="Files must be parsed before adding manual data")
-
-    try:
-        # Update job record with manual data
-        manual_dict = manual_data.dict()
-        jobs_db[job_id]["manual_data"] = manual_dict
-
-        # Merge manual data into extracted data to fill missing fields
-        extracted = jobs_db[job_id].get("extracted_data", {})
-        part_i = extracted.get("part_I", {})
-
-        # Update extracted data with manually provided values
-        if manual_data.contract_number:
-            part_i["contract_number"] = manual_data.contract_number
-        if manual_data.shipment_no:
-            part_i["shipment_no"] = manual_data.shipment_no
-        if manual_data.product_description:
-            items = part_i.get("items", [{}])
-            if not items:
-                items = [{}]
-            items[0]["description"] = manual_data.product_description
-            part_i["items"] = items
-        if manual_data.quantity is not None:
-            items = part_i.get("items", [{}])
-            if not items:
-                items = [{}]
-            items[0]["quantity"] = manual_data.quantity
-            part_i["items"] = items
-
-        extracted["part_I"] = part_i
-        jobs_db[job_id]["extracted_data"] = extracted
-
-        jobs_db[job_id]["status"] = "manual_complete"
-        jobs_db[job_id]["updated_at"] = datetime.utcnow().isoformat()
-
-        logger.info(f"Manual data saved successfully for job {job_id}")
-
-        return {
-            "message": "Manual data saved successfully",
-            "job_id": job_id,
-            "manual_data": manual_dict
-        }
-    except Exception as e:
-        logger.error(f"Error saving manual data: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to save manual data: {str(e)}")
-
-@app.post("/api/jobs/{job_id}/validate")
-async def validate_job_data(job_id: str):
-    """Validate all collected data for a job"""
-    logger.info(f"Validating data for job {job_id}")
-
-    if job_id not in jobs_db:
-        raise HTTPException(status_code=404, detail="Job not found")
-
-    job = jobs_db[job_id]
-
-    if "extracted_data" not in job or not job["extracted_data"]:
-        raise HTTPException(status_code=400, detail="No extracted data to validate")
-
-    if "manual_data" not in job or not job["manual_data"]:
-        raise HTTPException(status_code=400, detail="Manual data must be submitted before validation")
-
-    try:
-        # Combine all data for validation
-        validation_data = {
-            **job["extracted_data"],
-            "manual_data": job["manual_data"]
-        }
-
-        # Run validation
-        validation_result = validate_conversion(validation_data)
-
-        # Update job record
-        jobs_db[job_id]["validation"] = validation_result
-        jobs_db[job_id]["status"] = "validated"
-        jobs_db[job_id]["updated_at"] = datetime.utcnow().isoformat()
-
-        logger.info(f"Validation complete for job {job_id}: {len(validation_result['errors'])} errors, {len(validation_result['warnings'])} warnings")
-
-        return {
-            "message": "Validation complete",
-            "job_id": job_id,
-            "validation": validation_result,
-            "has_errors": len(validation_result["errors"]) > 0,
-            "has_warnings": len(validation_result["warnings"]) > 0
-        }
-    except Exception as e:
-        logger.error(f"Error validating data: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to validate data: {str(e)}")
-
-@app.post("/api/jobs/{job_id}/render")
-async def render_job_document(job_id: str):
-    """Render the COC-D document from template and job data"""
-    logger.info(f"Rendering document for job {job_id}")
-
-    if job_id not in jobs_db:
-        raise HTTPException(status_code=404, detail="Job not found")
-
-    job = jobs_db[job_id]
-
-    # Check that we have the necessary data
-    if "extracted_data" not in job or not job["extracted_data"]:
-        raise HTTPException(status_code=400, detail="No extracted data available for rendering")
-
-    if "manual_data" not in job or not job["manual_data"]:
-        raise HTTPException(status_code=400, detail="Manual data must be submitted before rendering")
-
-    try:
-        # Get the default template
-        template_info = templates.get_default_template()
-        if not template_info:
-            raise HTTPException(status_code=404, detail="No template available. Please upload a template first.")
-
-        template_path = Path(template_info["path"])
-
-        # If path is relative, make it relative to the backend directory
-        if not template_path.is_absolute():
-            # Assume it's relative to the backend root (where uvicorn runs)
-            template_path = Path.cwd() / template_path
-
-        logger.info(f"Looking for template at: {template_path}")
-
-        if not template_path.exists():
-            raise HTTPException(status_code=404, detail=f"Template file not found at: {template_path}")
-
-        logger.info(f"Using template: {template_info['name']} v{template_info['version']}")
-
-        # Render the document
-        rendered_path = render_docx(
-            template_path=template_path,
-            data=job,
-            job_id=job_id
-        )
-
-        # Update job record
-        jobs_db[job_id]["rendered_file"] = str(rendered_path)
-        jobs_db[job_id]["status"] = "rendered"
-        jobs_db[job_id]["updated_at"] = datetime.utcnow().isoformat()
-
-        logger.info(f"Document rendered successfully for job {job_id}: {rendered_path}")
-
-        return {
-            "message": "Document rendered successfully",
-            "job_id": job_id,
-            "rendered_file": rendered_path.name,
-            "template_used": {
-                "name": template_info["name"],
-                "version": template_info["version"]
-            }
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error rendering document: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to render document: {str(e)}")
-
-@app.get("/api/jobs/{job_id}/download")
-async def download_rendered_document(job_id: str):
-    """Download the rendered COC-D document"""
-    logger.info(f"Downloading document for job {job_id}")
-
-    if job_id not in jobs_db:
-        raise HTTPException(status_code=404, detail="Job not found")
-
-    job = jobs_db[job_id]
-
-    if "rendered_file" not in job or not job["rendered_file"]:
-        raise HTTPException(status_code=400, detail="Document has not been rendered yet")
-
-    rendered_path = Path(job["rendered_file"])
-    if not rendered_path.exists():
-        raise HTTPException(status_code=404, detail="Rendered file not found on disk")
-
-    return FileResponse(
-        path=rendered_path,
-        filename=rendered_path.name,
-        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    )
-
-# Template Management Endpoints
-@app.get("/api/templates")
-async def list_templates():
-    """List all available templates"""
-    template_list = templates.list_templates()
-    return {"templates": template_list}
-
-@app.get("/api/templates/default")
-async def get_default_template():
-    """Get the default template"""
-    template = templates.get_default_template()
-    if not template:
-        raise HTTPException(status_code=404, detail="No templates available")
-    return template
-
-@app.post("/api/templates/upload")
-async def upload_template(
-    file: UploadFile = File(...),
-    name: str = Form(...),
-    version: str = Form(...),
-    set_as_default: str = Form("false")
-):
-    """Upload a new template"""
-    # Validate file type
-    if not file.filename.endswith('.docx'):
-        raise HTTPException(status_code=400, detail="Only DOCX files allowed")
-
-    # Save uploaded file to temp location
-    temp_file = Path(tempfile.mktemp(suffix=".docx"))
-    try:
-        content = await file.read()
-        temp_file.write_bytes(content)
-
-        # Add template to system
-        set_default = set_as_default.lower() in ("true", "1", "yes")
-        template_info = templates.add_template(
-            file_path=temp_file,
-            name=name,
-            version=version,
-            set_as_default=set_default
-        )
-
-        return {
-            "message": "Template uploaded successfully",
-            "template": template_info
-        }
-    finally:
-        # Clean up temp file
-        if temp_file.exists():
-            temp_file.unlink()
-
-@app.put("/api/templates/{template_id}/set-default")
-async def set_default_template(template_id: str):
-    """Set a template as the default"""
-    success = templates.set_default_template(template_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Template not found")
-    return {"message": "Template set as default"}
-
-@app.get("/api/templates/{template_id}/download")
-async def download_template(template_id: str):
-    """Download a template file"""
-    template = templates.get_template(template_id)
-    if not template:
-        raise HTTPException(status_code=404, detail="Template not found")
-
-    template_path = Path(template["path"])
-    if not template_path.exists():
-        raise HTTPException(status_code=404, detail="Template file not found")
-
-    return FileResponse(
-        path=str(template_path),
-        filename=template["filename"],
-        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    )
-
-@app.delete("/api/templates/{template_id}")
-async def delete_template(template_id: str):
-    """Delete a template"""
-    success = templates.delete_template(template_id)
-    if not success:
-        raise HTTPException(status_code=400, detail="Cannot delete template (not found or last remaining template)")
-    return {"message": "Template deleted successfully"}
