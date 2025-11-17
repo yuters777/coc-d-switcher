@@ -22,12 +22,11 @@ export default function ManualInputForm({ extractedData, onSubmit, loading }: Ma
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.partial_delivery_number || !formData.undelivered_quantity || !formData.sw_version) {
-      alert('Please fill in all required fields');
-      return;
+      return; // Form validation handled by required attribute
     }
-    
+
     onSubmit(formData);
   };
 
