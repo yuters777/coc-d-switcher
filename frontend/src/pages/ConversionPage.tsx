@@ -158,7 +158,7 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
 
       if (response.ok) {
         const cocMsg = jobState.files.coc ? ' both files' : ' packing slip';
-        alert(`Files uploaded successfully!${cocMsg} Click "Parse" to extract data.`);
+        // Auto-progress to parse step
         setCurrentStep(2);
       } else {
         console.error('Upload failed');
@@ -278,7 +278,7 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
           // Show validation error modal instead of just an alert
           setShowValidationErrorModal(true);
         } else if (data.has_warnings) {
-          alert(`Validation completed with ${data.validation.warnings.length} warning(s). You may proceed to render.`);
+          // Validation has warnings but can proceed - auto-progress to render
           setCurrentStep(5);
         } else {
           // Auto-progress to render step
