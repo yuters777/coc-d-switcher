@@ -7,7 +7,7 @@ interface ConversionPageProps {
   onSettingsClick: () => void;
 }
 
-type WorkflowStep = 1 | 2 | 3 | 4 | 5 | 6;
+type WorkflowStep = 1 | 2 | 3;
 
 interface JobState {
   jobId: string | null;
@@ -33,6 +33,7 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
     renderedFiles: null
   });
   const [loading, setLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('');
   const [showMissingDataModal, setShowMissingDataModal] = useState(false);
   const [missingDataFields, setMissingDataFields] = useState<string[]>([]);
   const [pendingManualData, setPendingManualData] = useState<any>(null);
@@ -70,11 +71,8 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
 
   const steps = [
     { number: 1, name: 'Upload', description: 'Upload COC & Packing Slip PDFs' },
-    { number: 2, name: 'Parse', description: 'Extract data from PDFs' },
-    { number: 3, name: 'Manual', description: 'Add manual data' },
-    { number: 4, name: 'Validate', description: 'Validate extracted data' },
-    { number: 5, name: 'Render', description: 'Generate Dutch COC' },
-    { number: 6, name: 'Download', description: 'Download result' }
+    { number: 2, name: 'Complete', description: 'Review & complete data' },
+    { number: 3, name: 'Download', description: 'Download result' }
   ];
 
   const handleCreateJob = async () => {
@@ -136,10 +134,10 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
     // Packing slip is required, COC is optional
     if (!jobState.files?.packing) {
       return; // Validation handled by UI
-      return;
     }
 
     setLoading(true);
+    setLoadingMessage('Uploading files...');
     const formData = new FormData();
 
     // Add COC file if provided (optional)
@@ -157,27 +155,27 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
       });
 
       if (response.ok) {
-        const cocMsg = jobState.files.coc ? ' both files' : ' packing slip';
-        // Auto-progress to parse step
-        setCurrentStep(2);
+        // Automatically parse after upload
+        setLoadingMessage('Extracting data from PDFs...');
+        await handleParse();
       } else {
         console.error('Upload failed');
+        setLoading(false);
+        setLoadingMessage('');
       }
     } catch (error) {
       console.error('Upload error:', error);
-      console.error('Upload failed:', error);
-    } finally {
       setLoading(false);
+      setLoadingMessage('');
     }
   };
 
   const handleParse = async () => {
     if (!jobState.jobId) {
-      console.error('No job found'); return;
+      console.error('No job found');
       return;
     }
 
-    setLoading(true);
     try {
       console.log('Parsing documents for job:', jobState.jobId);
       const response = await fetch(`${API_BASE}/api/jobs/${jobState.jobId}/parse`, {
@@ -193,18 +191,20 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
           ...jobState,
           extractedData: data.extracted_data
         });
-        // Auto-progress to manual step
-        setCurrentStep(3);
+        // Auto-progress to step 2 (manual data entry)
+        setCurrentStep(2);
+        setLoading(false);
+        setLoadingMessage('');
       } else {
         const errorText = await response.text();
         console.error('Failed to parse:', errorText);
-        console.error('Failed to parse documents:', errorText);
+        setLoading(false);
+        setLoadingMessage('');
       }
     } catch (error) {
       console.error('Parse error:', error);
-      console.error('Failed to parse documents:', error);
-    } finally {
       setLoading(false);
+      setLoadingMessage('');
     }
   };
 
@@ -214,11 +214,12 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
     sw_version: string;
   }) => {
     if (!jobState.jobId) {
-      console.error('No job found'); return;
+      console.error('No job found');
       return;
     }
 
     setLoading(true);
+    setLoadingMessage('Saving data...');
     try {
       console.log('Submitting manual data for job:', jobState.jobId, manualData);
       const response = await fetch(`${API_BASE}/api/jobs/${jobState.jobId}/manual`, {
@@ -236,18 +237,89 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
           ...jobState,
           manualData: data.manual_data
         });
-        // Auto-progress to validate step
-        setCurrentStep(4);
+
+        // Automatically validate and render
+        setLoadingMessage('Validating data...');
+        await handleValidateAndRender();
       } else {
         const errorText = await response.text();
         console.error('Failed to save manual data:', errorText);
-        console.error('Failed to save manual data:', errorText);
+        setLoading(false);
+        setLoadingMessage('');
       }
     } catch (error) {
       console.error('Manual data error:', error);
-      console.error('Failed to save manual data:', error);
-    } finally {
       setLoading(false);
+      setLoadingMessage('');
+    }
+  };
+
+  const handleValidateAndRender = async () => {
+    if (!jobState.jobId) {
+      console.error('No job found');
+      return;
+    }
+
+    try {
+      // Validate
+      console.log('Validating data for job:', jobState.jobId);
+      const validateResponse = await fetch(`${API_BASE}/api/jobs/${jobState.jobId}/validate`, {
+        method: 'POST'
+      });
+
+      if (validateResponse.ok) {
+        const validateData = await validateResponse.json();
+        console.log('Validation result:', validateData);
+        setJobState(prev => ({
+          ...prev,
+          validationResult: validateData.validation
+        }));
+
+        // If validation has blocking errors, stop here
+        if (validateData.has_errors) {
+          setShowValidationErrorModal(true);
+          setLoading(false);
+          setLoadingMessage('');
+          return;
+        }
+
+        // Render
+        setLoadingMessage('Generating document...');
+        console.log('Rendering document for job:', jobState.jobId);
+        const renderResponse = await fetch(`${API_BASE}/api/jobs/${jobState.jobId}/render`, {
+          method: 'POST'
+        });
+
+        if (renderResponse.ok) {
+          const renderData = await renderResponse.json();
+          console.log('Render result:', renderData);
+          setJobState(prev => ({
+            ...prev,
+            renderedFiles: {
+              docx: renderData.rendered_file,
+              template: renderData.template_used
+            }
+          }));
+          // Auto-progress to download (step 3)
+          setCurrentStep(3);
+          setLoading(false);
+          setLoadingMessage('');
+        } else {
+          const errorText = await renderResponse.text();
+          console.error('Failed to render:', errorText);
+          setLoading(false);
+          setLoadingMessage('');
+        }
+      } else {
+        const errorText = await validateResponse.text();
+        console.error('Failed to validate:', errorText);
+        setLoading(false);
+        setLoadingMessage('');
+      }
+    } catch (error) {
+      console.error('Validate/Render error:', error);
+      setLoading(false);
+      setLoadingMessage('');
     }
   };
 
@@ -463,49 +535,7 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
       case 2:
         return (
           <div className="space-y-6">
-            <h3 className="text-xl font-semibold">Step 2: Parse Documents</h3>
-            <div className="bg-white rounded-lg shadow p-6">
-              <p className="text-gray-600 mb-4">Extract data from uploaded PDF documents</p>
-
-              {jobState.extractedData ? (
-                <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded">
-                  <p className="text-sm text-green-800 font-semibold mb-2">✓ Documents parsed successfully</p>
-                  <div className="text-xs text-gray-600">
-                    <p>Extracted data is ready for manual input</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded">
-                  <p className="text-sm text-blue-800">
-                    Files ready: {jobState.files?.coc && '✓ COC'} {jobState.files?.packing && '✓ Packing Slip'}
-                  </p>
-                </div>
-              )}
-
-              <button
-                onClick={handleParse}
-                disabled={loading || !!jobState.extractedData}
-                className="w-full bg-blue-600 text-white py-3 rounded hover:bg-blue-700 disabled:bg-gray-400 font-medium"
-              >
-                {loading ? 'Parsing...' : jobState.extractedData ? 'Already Parsed' : 'Parse Documents'}
-              </button>
-
-              {jobState.extractedData && (
-                <button
-                  onClick={() => setCurrentStep(3)}
-                  className="w-full mt-3 bg-green-600 text-white py-3 rounded hover:bg-green-700 font-medium"
-                >
-                  Continue to Manual Input →
-                </button>
-              )}
-            </div>
-          </div>
-        );
-
-      case 3:
-        return (
-          <div className="space-y-6">
-            <h3 className="text-xl font-semibold">Step 3: Manual Data Entry</h3>
+            <h3 className="text-xl font-semibold">Step 2: Review & Complete Data</h3>
 
             {jobState.manualData ? (
               <div className="bg-white rounded-lg shadow p-6">
@@ -742,183 +772,10 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
           </div>
         );
 
-      case 4:
+      case 3:
         return (
           <div className="space-y-6">
-            <h3 className="text-xl font-semibold">Step 4: Validate Data</h3>
-            <div className="bg-white rounded-lg shadow p-6">
-              <p className="text-gray-600 mb-4">Verify all extracted and manual data</p>
-
-              {jobState.validationResult ? (
-                <div className="space-y-4">
-                  {/* Errors */}
-                  {jobState.validationResult.errors && jobState.validationResult.errors.length > 0 && (
-                    <div className="p-4 bg-red-50 border-2 border-red-300 rounded">
-                      <h4 className="font-semibold text-red-800 mb-2">
-                        ❌ Errors ({jobState.validationResult.errors.length})
-                      </h4>
-                      <div className="space-y-2">
-                        {jobState.validationResult.errors.map((error: any, idx: number) => (
-                          <div key={idx} className="text-sm">
-                            <p className="font-semibold text-red-700">{error.code}</p>
-                            <p className="text-red-600">{error.message}</p>
-                            <p className="text-xs text-red-500">Location: {error.where}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Warnings */}
-                  {jobState.validationResult.warnings && jobState.validationResult.warnings.length > 0 && (
-                    <div className="p-4 bg-yellow-50 border-2 border-yellow-300 rounded">
-                      <h4 className="font-semibold text-yellow-800 mb-2">
-                        ⚠️ Warnings ({jobState.validationResult.warnings.length})
-                      </h4>
-                      <div className="space-y-2">
-                        {jobState.validationResult.warnings.map((warning: any, idx: number) => (
-                          <div key={idx} className="text-sm">
-                            <p className="font-semibold text-yellow-700">{warning.code}</p>
-                            <p className="text-yellow-600">{warning.message}</p>
-                            <p className="text-xs text-yellow-500">Location: {warning.where}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Success */}
-                  {(!jobState.validationResult.errors || jobState.validationResult.errors.length === 0) &&
-                   (!jobState.validationResult.warnings || jobState.validationResult.warnings.length === 0) && (
-                    <div className="p-4 bg-green-50 border-2 border-green-300 rounded">
-                      <h4 className="font-semibold text-green-800">
-                        ✓ Validation Passed
-                      </h4>
-                      <p className="text-sm text-green-600 mt-1">
-                        All data is valid and ready for document generation.
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Action buttons */}
-                  <div className="space-y-2">
-                    {jobState.validationResult.errors && jobState.validationResult.errors.length > 0 ? (
-                      <div className="space-y-2">
-                        <div className="text-center text-sm text-gray-600 py-2 bg-gray-50 rounded border border-gray-200">
-                          <p className="font-semibold mb-1">You have {jobState.validationResult.errors.length} validation error(s)</p>
-                          <p className="text-xs">Choose an option below:</p>
-                        </div>
-
-                        <button
-                          onClick={() => setCurrentStep(3)}
-                          className="w-full bg-blue-600 text-white py-3 rounded hover:bg-blue-700 font-medium flex items-center justify-center gap-2"
-                        >
-                          <span>←</span>
-                          <span>Go Back to Step 3 to Fix Missing Data</span>
-                        </button>
-
-                        <button
-                          onClick={() => {
-                            if (confirm('⚠️ WARNING: Skipping Validation\n\nYou have validation errors. Proceeding without fixing them may result in:\n• Incomplete or incorrect documents\n• Missing required information\n• Processing failures\n\nThis is NOT recommended unless you know what you\'re doing.\n\nAre you sure you want to skip validation and proceed anyway?')) {
-                              setCurrentStep(5);
-                            }
-                          }}
-                          className="w-full bg-orange-500 text-white py-2 rounded hover:bg-orange-600 font-medium text-sm flex items-center justify-center gap-2"
-                        >
-                          <span>⚠️</span>
-                          <span>Skip Validation (Not Recommended)</span>
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setCurrentStep(5)}
-                        className="w-full bg-green-600 text-white py-3 rounded hover:bg-green-700 font-medium"
-                      >
-                        Continue to Render →
-                      </button>
-                    )}
-                    <button
-                      onClick={handleValidate}
-                      disabled={loading}
-                      className="w-full bg-gray-600 text-white py-2 rounded hover:bg-gray-700 disabled:bg-gray-400"
-                    >
-                      {loading ? 'Validating...' : 'Re-validate'}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  onClick={handleValidate}
-                  disabled={loading}
-                  className="w-full bg-blue-600 text-white py-3 rounded hover:bg-blue-700 disabled:bg-gray-400 font-medium"
-                >
-                  {loading ? 'Validating...' : 'Validate Data'}
-                </button>
-              )}
-            </div>
-          </div>
-        );
-
-      case 5:
-        return (
-          <div className="space-y-6">
-            <h3 className="text-xl font-semibold">Step 5: Render Document</h3>
-            <div className="bg-white rounded-lg shadow p-6">
-              <p className="text-gray-600 mb-4">Generate the Dutch MoD COC document from template</p>
-
-              {jobState.renderedFiles ? (
-                <div className="space-y-4">
-                  <div className="p-4 bg-green-50 border-2 border-green-300 rounded">
-                    <h4 className="font-semibold text-green-800 mb-2">✓ Document Rendered Successfully</h4>
-                    <div className="text-sm text-green-700 space-y-1">
-                      <p><strong>File:</strong> {jobState.renderedFiles.docx}</p>
-                      <p><strong>Template:</strong> {jobState.renderedFiles.template?.name} v{jobState.renderedFiles.template?.version}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setJobState({ ...jobState, renderedFiles: null })}
-                      className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 font-medium"
-                    >
-                      Re-render Document
-                    </button>
-                    <button
-                      onClick={() => setCurrentStep(6)}
-                      className="flex-1 bg-green-600 text-white py-2 rounded hover:bg-green-700 font-medium"
-                    >
-                      Continue to Download →
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="p-4 bg-blue-50 border border-blue-200 rounded">
-                    <p className="text-sm text-blue-800">
-                      📄 Ready to generate your Dutch MoD Certificate of Conformity
-                    </p>
-                    <p className="text-xs text-blue-600 mt-2">
-                      This will create a DOCX file using the default template and your validated data.
-                    </p>
-                  </div>
-
-                  <button
-                    onClick={handleRender}
-                    disabled={loading}
-                    className="w-full bg-blue-600 text-white py-3 rounded hover:bg-blue-700 disabled:bg-gray-400 font-medium"
-                  >
-                    {loading ? 'Generating Document...' : 'Generate Document'}
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        );
-
-      case 6:
-        return (
-          <div className="space-y-6">
-            <h3 className="text-xl font-semibold">Step 6: Download Result</h3>
+            <h3 className="text-xl font-semibold">Step 3: Download Result</h3>
             <div className="bg-white rounded-lg shadow p-6">
               <p className="text-gray-600 mb-4">Download your generated Dutch MoD COC document</p>
 
@@ -950,10 +807,10 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
 
                   <div className="flex gap-2">
                     <button
-                      onClick={() => setCurrentStep(5)}
+                      onClick={() => setCurrentStep(2)}
                       className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 text-sm"
                     >
-                      ← Back to Render
+                      ← Back to Step 2
                     </button>
                     <button
                       onClick={() => {
@@ -978,13 +835,13 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
               ) : (
                 <div className="p-4 bg-yellow-50 border border-yellow-300 rounded">
                   <p className="text-sm text-yellow-800">
-                    ⚠️ No document has been rendered yet. Please go back to Step 5 and generate the document first.
+                    ⚠️ No document has been rendered yet. Please go back to Step 2 and complete the process.
                   </p>
                   <button
-                    onClick={() => setCurrentStep(5)}
+                    onClick={() => setCurrentStep(2)}
                     className="mt-3 w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
                   >
-                    Go to Step 5: Render
+                    Go to Step 2
                   </button>
                 </div>
               )}
@@ -1058,7 +915,7 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
         {/* Workflow Steps */}
         <div className="mb-8 bg-white rounded-lg shadow p-6">
           <h2 className="text-sm font-semibold text-gray-500 mb-4">CONVERSION WORKFLOW</h2>
-          <div className="grid grid-cols-6 gap-2">
+          <div className="grid grid-cols-3 gap-4">
             {steps.map((step) => {
               const isActive = currentStep === step.number;
               const isCompleted = currentStep > step.number;
@@ -1118,6 +975,19 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
         <div>
           {renderStepContent()}
         </div>
+
+        {/* Loading Overlay */}
+        {loading && loadingMessage && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-8 max-w-md mx-4 text-center">
+              <div className="mb-4">
+                <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+              </div>
+              <p className="text-lg font-semibold text-gray-800">{loadingMessage}</p>
+              <p className="text-sm text-gray-500 mt-2">Please wait...</p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
