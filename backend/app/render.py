@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Dict, Any
 import json
 import os
+import tempfile
 from datetime import datetime
 
 TEMPLATE_PATH = os.getenv("TEMPLATE_PATH", "templates/COC_SV_Del165_20.03.2025.docx")
@@ -47,7 +48,10 @@ def render_docx(conv_json: Dict[str, Any], job_id: str) -> Path:
     # Generate filename with current date in DD.MM.YYYY format
     date_str = datetime.now().strftime("%d.%m.%Y")
     filename = f"COC_SV_Del{delivery_num}_{date_str}.docx"
-    out_path = Path(f"/tmp/{filename}")
+
+    # Use cross-platform temporary directory
+    temp_dir = Path(tempfile.gettempdir())
+    out_path = temp_dir / filename
 
     # In production, use docxtpl with actual template
     # For now, create placeholder
