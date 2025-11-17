@@ -29,10 +29,14 @@ export default function TemplateManager() {
     setLoading(true);
     try {
       const response = await fetch(`${API_BASE}/api/templates`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
       const data = await response.json();
-      setTemplates(data.templates);
+      setTemplates(data.templates || []);
     } catch (error) {
       console.error('Failed to load templates:', error);
+      setTemplates([]); // Set to empty array on error
     } finally {
       setLoading(false);
     }
@@ -189,7 +193,7 @@ export default function TemplateManager() {
       {/* Templates List */}
       {loading ? (
         <div className="text-center py-8 text-gray-500">Loading templates...</div>
-      ) : templates.length === 0 ? (
+      ) : !templates || templates.length === 0 ? (
         <div className="text-center py-8 text-gray-500">
           <p className="mb-2">No templates uploaded yet.</p>
           <p className="text-sm">Upload a DOCX template to get started.</p>
