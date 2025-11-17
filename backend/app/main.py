@@ -208,6 +208,31 @@ async def render_job(job_id: str):
         }
     }
 
+@app.get("/api/jobs/{job_id}/download")
+async def download_job(job_id: str):
+    """Download the rendered DOCX file for a job"""
+    if job_id not in jobs_db:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    job = jobs_db[job_id]
+
+    # Check if files have been rendered
+    if not job.get('rendered_files'):
+        raise HTTPException(status_code=400, detail="No rendered files available for this job")
+
+    # Get the DOCX file path
+    docx_path = job['rendered_files'].get('docx')
+    if not docx_path or not Path(docx_path).exists():
+        raise HTTPException(status_code=404, detail="Rendered DOCX file not found")
+
+    # Return the file with the correct filename
+    filename = Path(docx_path).name
+    return FileResponse(
+        path=docx_path,
+        media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        filename=filename
+    )
+
 # Template Management Endpoints
 @app.get("/api/templates")
 async def get_templates():
