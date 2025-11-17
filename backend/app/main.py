@@ -69,6 +69,40 @@ async def get_job(job_id: str):
         raise HTTPException(status_code=404, detail="Job not found")
     return jobs_db[job_id]
 
+@app.post("/api/jobs/{job_id}/files")
+async def upload_files(
+    job_id: str,
+    company_coc: UploadFile = File(None),
+    packing_slip: UploadFile = File(None)
+):
+    """Upload PDF files for a job"""
+    if job_id not in jobs_db:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    files = {}
+
+    # Save company COC if provided
+    if company_coc:
+        coc_path = UPLOAD_DIR / f"{job_id}_coc.pdf"
+        with open(coc_path, 'wb') as f:
+            content = await company_coc.read()
+            f.write(content)
+        files['coc'] = str(coc_path)
+
+    # Save packing slip if provided
+    if packing_slip:
+        ps_path = UPLOAD_DIR / f"{job_id}_packing.pdf"
+        with open(ps_path, 'wb') as f:
+            content = await packing_slip.read()
+            f.write(content)
+        files['packing'] = str(ps_path)
+
+    # Update job with file paths
+    jobs_db[job_id]['files'] = files
+    jobs_db[job_id]['updated_at'] = datetime.utcnow().isoformat()
+
+    return {"message": "Files uploaded successfully", "files": files}
+
 # Template Management Endpoints
 @app.get("/api/templates")
 async def get_templates():
