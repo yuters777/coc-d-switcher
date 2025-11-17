@@ -103,6 +103,110 @@ async def upload_files(
 
     return {"message": "Files uploaded successfully", "files": files}
 
+@app.post("/api/jobs/{job_id}/parse")
+async def parse_documents(job_id: str):
+    """Parse uploaded PDF documents and extract data"""
+    if job_id not in jobs_db:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    job = jobs_db[job_id]
+
+    # Check if files have been uploaded
+    if not job.get('files'):
+        raise HTTPException(status_code=400, detail="No files uploaded for this job")
+
+    # Extract data from PDFs
+    coc_path = job['files'].get('coc')
+    packing_path = job['files'].get('packing')
+
+    extracted_data = extract_from_pdfs(coc_path, packing_path)
+
+    # Update job with extracted data
+    jobs_db[job_id]['extracted_data'] = extracted_data
+    jobs_db[job_id]['updated_at'] = datetime.utcnow().isoformat()
+
+    return extracted_data
+
+@app.post("/api/jobs/{job_id}/manual")
+async def save_manual_data(job_id: str, manual_data: dict):
+    """Save manually entered data for a job"""
+    if job_id not in jobs_db:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    # Update job with manual data
+    jobs_db[job_id]['manual_data'] = manual_data
+    jobs_db[job_id]['updated_at'] = datetime.utcnow().isoformat()
+
+    return {"message": "Manual data saved", "manual_data": manual_data}
+
+@app.post("/api/jobs/{job_id}/validate")
+async def validate_job(job_id: str):
+    """Validate conversion data for a job"""
+    if job_id not in jobs_db:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    job = jobs_db[job_id]
+
+    # Prepare conversion data
+    conv_data = {
+        "extracted_data": job.get('extracted_data'),
+        "manual_data": job.get('manual_data'),
+        "template_vars": {}
+    }
+
+    # Validate the conversion
+    validation_result = validate_conversion(conv_data)
+
+    # Update job with validation results
+    jobs_db[job_id]['validation'] = validation_result
+    jobs_db[job_id]['updated_at'] = datetime.utcnow().isoformat()
+
+    return validation_result
+
+@app.post("/api/jobs/{job_id}/render")
+async def render_job(job_id: str):
+    """Render final documents for a job"""
+    if job_id not in jobs_db:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    job = jobs_db[job_id]
+
+    # Prepare conversion data for rendering
+    conv_json = {
+        "extracted_data": job.get('extracted_data'),
+        "manual_data": job.get('manual_data'),
+        "template_vars": job.get('extracted_data', {}).get('template_vars', {}),
+        "part_I": job.get('extracted_data', {}).get('part_I', {}),
+        "part_II": job.get('extracted_data', {}).get('part_II', {})
+    }
+
+    # Merge manual data into template_vars if available
+    if job.get('manual_data'):
+        conv_json['template_vars'].update(job['manual_data'])
+        conv_json['manual_data'] = job['manual_data']
+
+    # Render DOCX
+    docx_path = render_docx(conv_json, job_id)
+
+    # Convert to PDF
+    pdf_path = convert_to_pdf(docx_path)
+
+    # Update job with rendered file paths
+    jobs_db[job_id]['rendered_files'] = {
+        'docx': str(docx_path),
+        'pdf': str(pdf_path)
+    }
+    jobs_db[job_id]['status'] = 'completed'
+    jobs_db[job_id]['updated_at'] = datetime.utcnow().isoformat()
+
+    return {
+        "message": "Documents rendered successfully",
+        "files": {
+            "docx": str(docx_path),
+            "pdf": str(pdf_path)
+        }
+    }
+
 # Template Management Endpoints
 @app.get("/api/templates")
 async def get_templates():
