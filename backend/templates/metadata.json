@@ -7,6 +7,15 @@
       "filename": "d0d00cd7-54a4-4925-a5bd-6965624e82b8_temp_dutch_coc_template.docx",
       "path": "templates/d0d00cd7-54a4-4925-a5bd-6965624e82b8_temp_dutch_coc_template.docx",
       "uploaded_at": "2025-10-20T05:37:51.861954",
+      "is_default": false
+    },
+    {
+      "id": "919e89e5-2676-4899-959e-76cd3bcb9d96",
+      "name": "packing slip 2",
+      "version": "2",
+      "filename": "919e89e5-2676-4899-959e-76cd3bcb9d96_tmpztkaq9xl.docx",
+      "path": "templates\\919e89e5-2676-4899-959e-76cd3bcb9d96_tmpztkaq9xl.docx",
+      "uploaded_at": "2025-11-16T15:39:17.493022",
       "is_default": true
     }
   ]
