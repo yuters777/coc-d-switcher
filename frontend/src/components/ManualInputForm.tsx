@@ -44,6 +44,11 @@ export default function ManualInputForm({ extractedData, onSubmit, loading }: Ma
             <div><strong>Product:</strong> {extractedData.template_vars?.product_description}</div>
             <div><strong>Quantity:</strong> {extractedData.template_vars?.quantity}</div>
           </div>
+          {extractedData.part_I?.serial_count && (
+            <p className="text-xs text-blue-600 mt-2">
+              ℹ️ Extracted {extractedData.part_I.serial_count} serial numbers
+            </p>
+          )}
         </div>
       )}
 
