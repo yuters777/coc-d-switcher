@@ -92,7 +92,10 @@ def prepare_template_context(conv_json: Dict[str, Any]) -> Dict[str, Any]:
     """
     Prepare template context from conversion data
 
-    Provides both flat variables AND nested PI structure for template compatibility
+    Template expects these flat variables (confirmed by extract_template_vars.py):
+    - contract_number, shipment_no, contract_item, product_description, quantity
+    - supplier_serial_no, delivery_address, acquirer, date
+    - partial_delivery_number, final_delivery_number, undelivered_quantity, remarks
     """
     context = {}
 
@@ -108,6 +111,7 @@ def prepare_template_context(conv_json: Dict[str, Any]) -> Dict[str, Any]:
             "partial_delivery_number": manual_data.get("partial_delivery_number", ""),
             "undelivered_quantity": manual_data.get("undelivered_quantity", ""),
             "sw_version": manual_data.get("sw_version", ""),
+            "contract_item": manual_data.get("contract_item", ""),  # Can be manually set
         })
 
     # Get extracted data for fallback
@@ -135,41 +139,32 @@ def prepare_template_context(conv_json: Dict[str, Any]) -> Dict[str, Any]:
         remarks_parts.append(f"SW Ver. # {context['sw_version']}")
     context["remarks"] = "\n".join(remarks_parts) if remarks_parts else ""
 
-    # Ensure date is in correct format
-    if not context.get("date"):
-        context["date"] = datetime.now().strftime("%d.%m.%Y")
+    # Ensure all expected template variables have defaults
+    context.setdefault("contract_number", "")
+    context.setdefault("shipment_no", "")
+    context.setdefault("contract_item", "")  # Template expects this
+    context.setdefault("product_description", "")
+    context.setdefault("quantity", "")
+    context.setdefault("supplier_serial_no", "")
+    context.setdefault("delivery_address", "")
+    context.setdefault("acquirer", "")
+    context.setdefault("date", datetime.now().strftime("%d.%m.%Y"))
+    context.setdefault("partial_delivery_number", "")
+    context.setdefault("final_delivery_number", "")
+    context.setdefault("undelivered_quantity", "")
+    context.setdefault("serials", [])
+    context.setdefault("serial_count", 0)
 
-    # Ensure final_delivery_number has default
-    if not context.get("final_delivery_number"):
-        context["final_delivery_number"] = "N/A"
+    # Log what we're providing to template
+    logger.info(f"Template context prepared with {len(context)} variables")
+    logger.info(f"  - contract_number: {context.get('contract_number', 'MISSING')}")
+    logger.info(f"  - shipment_no: {context.get('shipment_no', 'MISSING')}")
+    logger.info(f"  - contract_item: {context.get('contract_item', 'EMPTY')}")
+    logger.info(f"  - product_description: {context.get('product_description', 'MISSING')[:50]}...")
+    logger.info(f"  - quantity: {context.get('quantity', 'MISSING')}")
+    logger.info(f"  - serial numbers: {len(context.get('serials', []))} items")
+    logger.info(f"  - date: {context.get('date', 'MISSING')}")
 
-    # Add contract_item if missing
-    if not context.get("contract_item"):
-        context["contract_item"] = ""
-
-    # CRITICAL FIX: Create nested PI structure for templates that expect {{ PI.ContractNumber }}
-    # This ensures compatibility with templates using either flat or nested variable syntax
-    context["PI"] = {
-        "ContractNumber": context.get("contract_number", ""),
-        "ShipmentNo": context.get("shipment_no", ""),
-        "ProductDescription": context.get("product_description", ""),
-        "Quantity": context.get("quantity", ""),
-        "SupplierSerialNo": context.get("supplier_serial_no", ""),
-        "DeliveryAddress": context.get("delivery_address", ""),
-        "Acquirer": context.get("acquirer", ""),
-        "Date": context.get("date", ""),
-        "Serials": context.get("serials", []),
-        "SerialCount": context.get("serial_count", 0),
-        "QASigner": context.get("qa_signer", ""),
-        "PartialDeliveryNumber": context.get("partial_delivery_number", ""),
-        "UndeliveredQuantity": context.get("undelivered_quantity", ""),
-        "SWVersion": context.get("sw_version", ""),
-        "Remarks": context.get("remarks", ""),
-    }
-
-    logger.info(f"Prepared context with {len(context)} variables (including {len(context.get('serials', []))} serial numbers)")
-    logger.debug(f"Template context keys: {list(context.keys())}")
-    logger.debug(f"PI structure keys: {list(context['PI'].keys())}")
     return context
 
 
