@@ -193,8 +193,8 @@ def compare_with_our_context():
 def main():
     """Main function"""
 
-    # Template path
-    template_path = "backend/templates/COC_SV_Del165_20.03.2025.docx"
+    # Template path - using actual template filename
+    template_path = "backend/templates/d0d00cd7-54a4-4925-a5bd-6965624e82b8_temp_dutch_coc_template.docx"
 
     print("="*80)
     print("DOCX TEMPLATE VARIABLE EXTRACTOR")
