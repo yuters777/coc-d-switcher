@@ -89,11 +89,11 @@ def prepare_template_context(conv_json: Dict[str, Any]) -> Dict[str, Any]:
     """
     Prepare template context from conversion data
 
-    Flattens the data structure for template variables
+    Provides both flat variables AND nested PI structure for template compatibility
     """
     context = {}
 
-    # Get template_vars (prepared by extract.py with all fields)
+    # Get template_vars (prepared by extract.py with all fields INCLUDING serial numbers)
     template_vars = conv_json.get("template_vars", {})
     if template_vars:
         context.update(template_vars)
@@ -121,6 +121,10 @@ def prepare_template_context(conv_json: Dict[str, Any]) -> Dict[str, Any]:
                 context["product_description"] = part_i.get("product_description", "")
             if not context.get("quantity"):
                 context["quantity"] = str(part_i.get("quantity", ""))
+            # Ensure serial numbers are present
+            if not context.get("serials"):
+                context["serials"] = part_i.get("serials", [])
+                context["serial_count"] = len(context["serials"])
 
     # Build remarks field from sw_version
     remarks_parts = []
@@ -140,8 +144,29 @@ def prepare_template_context(conv_json: Dict[str, Any]) -> Dict[str, Any]:
     if not context.get("contract_item"):
         context["contract_item"] = ""
 
-    logger.info(f"Prepared context with {len(context)} variables")
-    logger.debug(f"Template context: {list(context.keys())}")
+    # CRITICAL FIX: Create nested PI structure for templates that expect {{ PI.ContractNumber }}
+    # This ensures compatibility with templates using either flat or nested variable syntax
+    context["PI"] = {
+        "ContractNumber": context.get("contract_number", ""),
+        "ShipmentNo": context.get("shipment_no", ""),
+        "ProductDescription": context.get("product_description", ""),
+        "Quantity": context.get("quantity", ""),
+        "SupplierSerialNo": context.get("supplier_serial_no", ""),
+        "DeliveryAddress": context.get("delivery_address", ""),
+        "Acquirer": context.get("acquirer", ""),
+        "Date": context.get("date", ""),
+        "Serials": context.get("serials", []),
+        "SerialCount": context.get("serial_count", 0),
+        "QASigner": context.get("qa_signer", ""),
+        "PartialDeliveryNumber": context.get("partial_delivery_number", ""),
+        "UndeliveredQuantity": context.get("undelivered_quantity", ""),
+        "SWVersion": context.get("sw_version", ""),
+        "Remarks": context.get("remarks", ""),
+    }
+
+    logger.info(f"Prepared context with {len(context)} variables (including {len(context.get('serials', []))} serial numbers)")
+    logger.debug(f"Template context keys: {list(context.keys())}")
+    logger.debug(f"PI structure keys: {list(context['PI'].keys())}")
     return context
 
 

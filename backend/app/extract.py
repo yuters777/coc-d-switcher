@@ -51,7 +51,7 @@ def extract_from_pdfs(company_coc_path: Optional[str], packing_slip_path: Option
 
     logger.info(f"Merged part_I data: {result['part_I']}")
 
-    # Build template_vars from part_I for frontend display
+    # Build template_vars from part_I for frontend display AND template rendering
     result["template_vars"] = {
         "contract_number": result["part_I"].get("contract_number", ""),
         "shipment_no": result["part_I"].get("shipment_no", ""),
@@ -65,7 +65,12 @@ def extract_from_pdfs(company_coc_path: Optional[str], packing_slip_path: Option
         "final_delivery_number": "",
         "date": normalize_date(result["part_I"].get("date", ""), "filename") or datetime.now().strftime("%d.%m.%Y"),
         "delivery_address": result["part_I"].get("ship_to", ""),
-        "acquirer": result["part_I"].get("customer", "")
+        "acquirer": result["part_I"].get("customer", ""),
+        # CRITICAL FIX: Add serial numbers for template rendering
+        "serials": result["part_I"].get("serials", []),
+        "serial_count": result["part_I"].get("serial_count", 0),
+        # Add QA signer and other fields that might be needed
+        "qa_signer": result["part_I"].get("qa_signer", ""),
     }
 
     # Update part_I with serial count for display
