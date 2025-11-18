@@ -26,28 +26,37 @@ def extract_jinja_variables_from_docx(docx_path):
     try:
         # Open DOCX as ZIP
         with zipfile.ZipFile(docx_path, 'r') as docx_zip:
-            # The main document content is in word/document.xml
-            xml_files = ['word/document.xml', 'word/header1.xml', 'word/header2.xml',
-                        'word/footer1.xml', 'word/footer2.xml']
+            # Search ALL XML files in the DOCX archive
+            all_files = docx_zip.namelist()
+            xml_files = [f for f in all_files if f.endswith('.xml')]
+
+            print(f"📁 Searching {len(xml_files)} XML files in template:\n")
+            for xml_file in xml_files[:10]:  # Show first 10
+                print(f"  • {xml_file}")
+            if len(xml_files) > 10:
+                print(f"  ... and {len(xml_files) - 10} more")
+            print()
 
             for xml_file in xml_files:
                 try:
                     xml_content = docx_zip.read(xml_file).decode('utf-8')
 
-                    # Find all {{ variable }} patterns
-                    var_pattern = r'\{\{\s*([^}]+?)\s*\}\}'
-                    matches = re.findall(var_pattern, xml_content)
+                    # Find all {{ variable }} AND { variable } patterns (both syntaxes)
+                    var_pattern_double = r'\{\{\s*([^}]+?)\s*\}\}'
+                    var_pattern_single = r'\{\s*([^}]+?)\s*\}'
 
-                    for match in matches:
-                        # Clean up the variable name
+                    matches_double = re.findall(var_pattern_double, xml_content)
+                    matches_single = re.findall(var_pattern_single, xml_content)
+
+                    for match in matches_double + matches_single:
                         var_name = match.strip()
-
-                        # Skip if it's a comment
-                        if var_name.startswith('#'):
+                        # Skip XML tags, Word internal tags, and common XML patterns
+                        if (var_name.startswith('#') or var_name.startswith('w:') or
+                            var_name.startswith('/') or '<' in var_name or '>' in var_name):
                             continue
 
-                        # Categorize by type
-                        if '|' in var_name:  # Has filters
+                        # Extract base variable name (without filters)
+                        if '|' in var_name:
                             base_var = var_name.split('|')[0].strip()
                             variables.add(base_var)
                         else:
@@ -55,24 +64,38 @@ def extract_jinja_variables_from_docx(docx_path):
 
                     # Find all {% for %} loops
                     loop_pattern = r'\{%\s*for\s+(\w+)\s+in\s+([^%]+?)\s*%\}'
-                    loop_matches = re.findall(loop_pattern, xml_content)
+                    loop_matches = re.findall(loop_pattern, xml_content, re.IGNORECASE)
                     for item_var, collection_var in loop_matches:
                         loops.add(f"{item_var} in {collection_var.strip()}")
 
+                    # Find docxtpl table row loops: {%tr for item in items %}
+                    tr_loop_pattern = r'\{%tr\s+for\s+(\w+)\s+in\s+([^%]+?)\s*%\}'
+                    tr_matches = re.findall(tr_loop_pattern, xml_content, re.IGNORECASE)
+                    for item_var, collection_var in tr_matches:
+                        loops.add(f"TR_LOOP: {item_var} in {collection_var.strip()}")
+
+                    # Find docxtpl table cell loops: {%tc for item in items %}
+                    tc_loop_pattern = r'\{%tc\s+for\s+(\w+)\s+in\s+([^%]+?)\s*%\}'
+                    tc_matches = re.findall(tc_loop_pattern, xml_content, re.IGNORECASE)
+                    for item_var, collection_var in tc_matches:
+                        loops.add(f"TC_LOOP: {item_var} in {collection_var.strip()}")
+
                     # Find all {% if %} conditionals
                     if_pattern = r'\{%\s*if\s+([^%]+?)\s*%\}'
-                    if_matches = re.findall(if_pattern, xml_content)
+                    if_matches = re.findall(if_pattern, xml_content, re.IGNORECASE)
                     for condition in if_matches:
                         conditionals.add(condition.strip())
 
-                    if matches or loop_matches or if_matches:
-                        print(f"✅ Found Jinja2 syntax in: {xml_file}")
+                    # Report findings per file
+                    total_findings = len(matches_double) + len(matches_single) + len(loop_matches) + len(tr_matches) + len(tc_matches) + len(if_matches)
+                    if total_findings > 0:
+                        print(f"✅ {xml_file}: {total_findings} Jinja2 patterns found")
 
                 except KeyError:
-                    # File doesn't exist in this template
                     pass
-                except Exception as e:
-                    print(f"⚠️  Error reading {xml_file}: {e}")
+                except (UnicodeDecodeError, Exception) as e:
+                    # Silently skip binary files or decode errors
+                    pass
 
         return {
             "variables": sorted(variables),
@@ -150,7 +173,18 @@ def print_template_analysis(result):
     if loops:
         print(f"\n🔄 FOR LOOPS FOUND ({len(loops)} total):")
         for loop in loops:
-            print(f"    • {{% for {loop} %}}")
+            if loop.startswith("TR_LOOP:"):
+                print(f"    • {{%tr for {loop.replace('TR_LOOP: ', '')} %}}  [Table Row Loop]")
+            elif loop.startswith("TC_LOOP:"):
+                print(f"    • {{%tc for {loop.replace('TC_LOOP: ', '')} %}}  [Table Cell Loop]")
+            else:
+                print(f"    • {{% for {loop} %}}")
+    else:
+        print(f"\n⚠️  NO LOOPS FOUND!")
+        print("    If serial numbers should appear, check:")
+        print("    1. Template might have static serial number fields (unlikely for 100+)")
+        print("    2. Template might be corrupted or variables split by Word")
+        print("    3. Serial numbers might be in a different structure")
 
     if conditionals:
         print(f"\n🔀 CONDITIONALS FOUND ({len(conditionals)} total):")
