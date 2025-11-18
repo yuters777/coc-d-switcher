@@ -108,14 +108,16 @@ def merge_text_runs(xml_content):
                             if j - i > 10:
                                 break
 
-        # Convert back to string
-        xml_bytes = ET.tostring(root, encoding='utf-8', xml_declaration=False)
+        # Convert back to string (without xml_declaration for compatibility)
+        xml_bytes = ET.tostring(root, encoding='utf-8')
         xml_str = xml_bytes.decode('utf-8')
 
         return xml_str, changes_made
 
     except Exception as e:
-        print(f"Warning: Could not parse XML: {e}")
+        print(f"❌ Error merging runs: {e}")
+        import traceback
+        traceback.print_exc()
         return xml_content, 0
 
 
