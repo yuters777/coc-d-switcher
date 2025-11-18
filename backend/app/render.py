@@ -69,8 +69,8 @@ def render_docx(conv_json: Dict[str, Any], job_id: str) -> Path:
 
 def find_template() -> Optional[Path]:
     """Find template file in common locations"""
-    # Use the actual template filename
-    template_name = "d0d00cd7-54a4-4925-a5bd-6965624e82b8_temp_dutch_coc_template.docx"
+    # Use the FIXED template (with merged Jinja2 variables)
+    template_name = "d0d00cd7-54a4-4925-a5bd-6965624e82b8_temp_dutch_coc_template_fixed.docx"
 
     search_paths = [
         Path(f"templates/{template_name}"),
