@@ -69,11 +69,14 @@ def render_docx(conv_json: Dict[str, Any], job_id: str) -> Path:
 
 def find_template() -> Optional[Path]:
     """Find template file in common locations"""
+    # Use the actual template filename
+    template_name = "d0d00cd7-54a4-4925-a5bd-6965624e82b8_temp_dutch_coc_template.docx"
+
     search_paths = [
-        Path("templates/COC_SV_Del165_20.03.2025.docx"),
-        Path("backend/templates/COC_SV_Del165_20.03.2025.docx"),
-        Path("../templates/COC_SV_Del165_20.03.2025.docx"),
-        Path(__file__).parent.parent / "templates" / "COC_SV_Del165_20.03.2025.docx",
+        Path(f"templates/{template_name}"),
+        Path(f"backend/templates/{template_name}"),
+        Path(f"../templates/{template_name}"),
+        Path(__file__).parent.parent / "templates" / template_name,
     ]
 
     for path in search_paths:
