@@ -8,10 +8,9 @@ function ConversionWorkflow() {
   const [jobId, setJobId] = useState<string | null>(null);
 
   const steps = [
-    { num: 1, title: 'Upload Documents', desc: 'Upload Company COC and Packing Slip PDFs' },
-    { num: 2, title: 'Review & Edit', desc: 'Review extracted data and make corrections' },
-    { num: 3, title: 'Validate', desc: 'Check all fields are correct' },
-    { num: 4, title: 'Generate', desc: 'Create Dutch COC document' },
+    { num: 1, title: 'Upload', desc: 'Upload Company COC and Packing Slip PDFs' },
+    { num: 2, title: 'Complete', desc: 'Process and generate document' },
+    { num: 3, title: 'Download', desc: 'Download the Dutch COC' },
   ];
 
   const createJob = async () => {
@@ -41,21 +40,21 @@ function ConversionWorkflow() {
     <div className="container mx-auto p-6 max-w-4xl">
       {/* Workflow Steps Header */}
       <div className="mb-8">
-        <div className="flex justify-between items-center">
+        <div className="flex justify-center items-center gap-4">
           {steps.map((step, idx) => (
             <div key={step.num} className="flex items-center">
               <div className={`flex flex-col items-center ${currentStep >= step.num ? 'text-blue-600' : 'text-gray-400'}`}>
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg ${
                   currentStep > step.num ? 'bg-green-500 text-white' :
                   currentStep === step.num ? 'bg-blue-600 text-white' :
                   'bg-gray-200 text-gray-500'
                 }`}>
                   {currentStep > step.num ? '✓' : step.num}
                 </div>
-                <div className="text-xs mt-1 font-medium text-center">{step.title}</div>
+                <div className="text-sm mt-2 font-medium text-center">{step.title}</div>
               </div>
               {idx < steps.length - 1 && (
-                <div className={`w-16 h-1 mx-2 ${currentStep > step.num ? 'bg-green-500' : 'bg-gray-200'}`} />
+                <div className={`w-20 h-1 mx-4 ${currentStep > step.num ? 'bg-green-500' : 'bg-gray-200'}`} />
               )}
             </div>
           ))}
@@ -85,39 +84,37 @@ function ConversionWorkflow() {
             />
           )}
           {currentStep === 2 && (
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Step 2: Review & Edit Data</h3>
-              <p className="text-gray-600 mb-4">Review the extracted data and make any necessary corrections.</p>
+            <div className="text-center">
+              <div className="text-6xl mb-4">✅</div>
+              <h3 className="text-xl font-semibold mb-4">Processing Complete</h3>
+              <p className="text-gray-600 mb-6">Your Dutch COC document has been generated successfully.</p>
               <button
                 onClick={() => setCurrentStep(3)}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium"
               >
-                Continue to Validation
+                Continue to Download
               </button>
             </div>
           )}
           {currentStep === 3 && (
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Step 3: Validate</h3>
-              <p className="text-gray-600 mb-4">All fields have been validated.</p>
-              <button
-                onClick={() => setCurrentStep(4)}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-              >
-                Continue to Generate
-              </button>
-            </div>
-          )}
-          {currentStep === 4 && (
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Step 4: Generate Document</h3>
-              <p className="text-gray-600 mb-4">Ready to generate the Dutch COC document.</p>
-              <button
-                onClick={() => alert('Document generation coming soon!')}
-                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-              >
-                Generate Dutch COC
-              </button>
+            <div className="text-center">
+              <div className="text-6xl mb-4">📄</div>
+              <h3 className="text-xl font-semibold mb-4">Download Your Document</h3>
+              <p className="text-gray-600 mb-6">Your Dutch COC is ready for download.</p>
+              <div className="space-x-4">
+                <button
+                  onClick={() => alert('Download DOCX coming soon!')}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                >
+                  Download DOCX
+                </button>
+                <button
+                  onClick={() => alert('Download PDF coming soon!')}
+                  className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 font-medium"
+                >
+                  Download PDF
+                </button>
+              </div>
             </div>
           )}
         </div>
