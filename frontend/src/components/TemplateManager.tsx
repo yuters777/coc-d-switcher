@@ -44,8 +44,7 @@ export default function TemplateManager() {
 
   const handleUpload = async () => {
     if (!uploadData.file || !uploadData.name || !uploadData.version) {
-      alert('Please fill in all fields');
-      return;
+      return; // Form validation prevents this
     }
 
     const formData = new FormData();
@@ -62,17 +61,16 @@ export default function TemplateManager() {
       });
 
       if (response.ok) {
-        alert('Template uploaded successfully');
+        // Success - close form and refresh list (no popup needed)
         setShowUpload(false);
         setUploadData({ file: null, name: '', version: '', set_as_default: false });
         loadTemplates();
       } else {
         const error = await response.json();
-        alert(`Upload failed: ${error.detail}`);
+        console.error('Upload failed:', error.detail);
       }
     } catch (error) {
       console.error('Upload error:', error);
-      alert('Upload failed');
     } finally {
       setUploading(false);
     }
@@ -106,7 +104,7 @@ export default function TemplateManager() {
         loadTemplates();
       } else {
         const error = await response.json();
-        alert(`Delete failed: ${error.detail}`);
+        console.error('Delete failed:', error.detail);
       }
     } catch (error) {
       console.error('Failed to delete:', error);
