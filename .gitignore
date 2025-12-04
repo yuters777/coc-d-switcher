@@ -18,19 +18,16 @@ dist/
 # OS
 .DS_Store
 Thumbs.db
+desktop.ini
 
 # Project
 /tmp/
 *.pdf
 *.docx
 !templates/*.docx
+!backend/templates/*.docx
 
 # Environment
-<<<<<<< HEAD
 .env
-=======
-.env
-desktop.ini
->>>>>>> 4ef4467 (Sync local Drive changes after cleaning corrupt refs)
 
 .git_bad/

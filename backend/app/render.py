@@ -609,8 +609,10 @@ def render_docx(conv_json: Dict[str, Any], job_id: str, template_path: Optional[
         # Check for template in templates directory
         backend_dir = Path(__file__).parent.parent
         template_candidates = [
-            backend_dir / "templates" / "d0d00cd7-54a4-4925-a5bd-6965624e82b8_temp_dutch_coc_template.docx",
+            # New template with proper {{ placeholders }} for GQAR section
             backend_dir / "templates" / "dutch_coc_template.docx",
+            # Fallback templates
+            backend_dir / "templates" / "d0d00cd7-54a4-4925-a5bd-6965624e82b8_temp_dutch_coc_template.docx",
             backend_dir / "templates" / "COC_SV_Del165_20.03.2025.docx",
             Path(TEMPLATE_PATH),
         ]
