@@ -1,6 +1,6 @@
 import os
 import tempfile
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -15,6 +15,7 @@ from .extract import extract_from_pdfs
 from .validate import validate_conversion
 from .render import render_docx, convert_to_pdf
 from .config import load_config
+from . import templates as template_manager
 
 app = FastAPI(title="COC-D Switcher API")
 
@@ -29,7 +30,6 @@ app.add_middleware(
 )
 
 jobs_db: Dict[str, Dict[str, Any]] = {}
-# Use system temp directory for cross-platform compatibility
 UPLOAD_DIR = Path(tempfile.gettempdir()) / "coc-uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
 
@@ -67,3 +67,255 @@ async def get_job(job_id: str):
     if job_id not in jobs_db:
         raise HTTPException(status_code=404, detail="Job not found")
     return jobs_db[job_id]
+
+@app.post("/api/jobs/{job_id}/files")
+async def upload_files(
+    job_id: str,
+    company_coc: UploadFile = File(None),
+    packing_slip: UploadFile = File(None)
+):
+    """Upload PDF files for a job"""
+    if job_id not in jobs_db:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    files = {}
+
+    # Save company COC if provided
+    if company_coc:
+        coc_path = UPLOAD_DIR / f"{job_id}_coc.pdf"
+        with open(coc_path, 'wb') as f:
+            content = await company_coc.read()
+            f.write(content)
+        files['coc'] = str(coc_path)
+
+    # Save packing slip if provided
+    if packing_slip:
+        ps_path = UPLOAD_DIR / f"{job_id}_packing.pdf"
+        with open(ps_path, 'wb') as f:
+            content = await packing_slip.read()
+            f.write(content)
+        files['packing'] = str(ps_path)
+
+    # Update job with file paths
+    jobs_db[job_id]['files'] = files
+    jobs_db[job_id]['updated_at'] = datetime.utcnow().isoformat()
+
+    return {"message": "Files uploaded successfully", "files": files}
+
+@app.post("/api/jobs/{job_id}/parse")
+async def parse_documents(job_id: str):
+    """Parse uploaded PDF documents and extract data"""
+    if job_id not in jobs_db:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    job = jobs_db[job_id]
+
+    # Check if files have been uploaded
+    if not job.get('files'):
+        raise HTTPException(status_code=400, detail="No files uploaded for this job")
+
+    # Extract data from PDFs
+    coc_path = job['files'].get('coc')
+    packing_path = job['files'].get('packing')
+
+    extracted_data = extract_from_pdfs(coc_path, packing_path)
+
+    # Update job with extracted data
+    jobs_db[job_id]['extracted_data'] = extracted_data
+    jobs_db[job_id]['updated_at'] = datetime.utcnow().isoformat()
+
+    # Return wrapped in expected structure for frontend
+    return {"extracted_data": extracted_data}
+
+@app.post("/api/jobs/{job_id}/manual")
+async def save_manual_data(job_id: str, manual_data: dict):
+    """Save manually entered data for a job"""
+    if job_id not in jobs_db:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    # Update job with manual data
+    jobs_db[job_id]['manual_data'] = manual_data
+    jobs_db[job_id]['updated_at'] = datetime.utcnow().isoformat()
+
+    return {"message": "Manual data saved", "manual_data": manual_data}
+
+@app.post("/api/jobs/{job_id}/validate")
+async def validate_job(job_id: str):
+    """Validate conversion data for a job"""
+    if job_id not in jobs_db:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    job = jobs_db[job_id]
+
+    # Prepare conversion data
+    conv_data = {
+        "extracted_data": job.get('extracted_data'),
+        "manual_data": job.get('manual_data'),
+        "template_vars": {}
+    }
+
+    # Validate the conversion
+    validation_result = validate_conversion(conv_data)
+
+    # Update job with validation results
+    jobs_db[job_id]['validation'] = validation_result
+    jobs_db[job_id]['updated_at'] = datetime.utcnow().isoformat()
+
+    return validation_result
+
+@app.post("/api/jobs/{job_id}/render")
+async def render_job(job_id: str):
+    """Render final documents for a job"""
+    if job_id not in jobs_db:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    job = jobs_db[job_id]
+
+    # Prepare conversion data for rendering
+    conv_json = {
+        "extracted_data": job.get('extracted_data'),
+        "manual_data": job.get('manual_data'),
+        "template_vars": job.get('extracted_data', {}).get('template_vars', {}),
+        "part_I": job.get('extracted_data', {}).get('part_I', {}),
+        "part_II": job.get('extracted_data', {}).get('part_II', {})
+    }
+
+    # Merge manual data into template_vars if available
+    if job.get('manual_data'):
+        conv_json['template_vars'].update(job['manual_data'])
+        conv_json['manual_data'] = job['manual_data']
+
+    # Render DOCX
+    docx_path = render_docx(conv_json, job_id)
+
+    # Convert to PDF
+    pdf_path = convert_to_pdf(docx_path)
+
+    # Update job with rendered file paths
+    jobs_db[job_id]['rendered_files'] = {
+        'docx': str(docx_path),
+        'pdf': str(pdf_path)
+    }
+    jobs_db[job_id]['status'] = 'completed'
+    jobs_db[job_id]['updated_at'] = datetime.utcnow().isoformat()
+
+    return {
+        "message": "Documents rendered successfully",
+        "files": {
+            "docx": str(docx_path),
+            "pdf": str(pdf_path)
+        }
+    }
+
+@app.get("/api/jobs/{job_id}/download")
+async def download_job(job_id: str):
+    """Download the rendered DOCX file for a job"""
+    if job_id not in jobs_db:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    job = jobs_db[job_id]
+
+    # Check if files have been rendered
+    if not job.get('rendered_files'):
+        raise HTTPException(status_code=400, detail="No rendered files available for this job")
+
+    # Get the DOCX file path
+    docx_path = job['rendered_files'].get('docx')
+    if not docx_path or not Path(docx_path).exists():
+        raise HTTPException(status_code=404, detail="Rendered DOCX file not found")
+
+    # Return the file with the correct filename
+    filename = Path(docx_path).name
+    return FileResponse(
+        path=docx_path,
+        media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        filename=filename
+    )
+
+
+# Template Management API
+@app.get("/api/templates")
+async def list_templates():
+    """List all available templates"""
+    templates = template_manager.list_templates()
+    return {"templates": templates}
+
+
+@app.get("/api/templates/default")
+async def get_default_template():
+    """Get the default template"""
+    template = template_manager.get_default_template()
+    if not template:
+        raise HTTPException(status_code=404, detail="No templates available")
+    return template
+
+
+@app.post("/api/templates/upload")
+async def upload_template(
+    file: UploadFile = File(...),
+    name: str = Form(...),
+    version: str = Form(...),
+    set_as_default: str = Form("false")
+):
+    """Upload a new template"""
+    # Validate file type
+    if not file.filename.endswith(".docx"):
+        raise HTTPException(status_code=400, detail="Only DOCX files allowed")
+
+    # Save file temporarily
+    temp_path = UPLOAD_DIR / file.filename
+    try:
+        with open(temp_path, "wb") as f:
+            content = await file.read()
+            f.write(content)
+
+        # Add template
+        is_default = set_as_default.lower() == "true"
+        template_info = template_manager.add_template(
+            file_path=temp_path,
+            name=name,
+            version=version,
+            set_as_default=is_default
+        )
+
+        return {"message": "Template uploaded successfully", "template": template_info}
+    finally:
+        # Clean up temp file
+        if temp_path.exists():
+            temp_path.unlink()
+
+
+@app.get("/api/templates/{template_id}/download")
+async def download_template(template_id: str):
+    """Download a template file"""
+    template = template_manager.get_template(template_id)
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    file_path = Path(template["path"])
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Template file not found")
+
+    return FileResponse(
+        path=str(file_path),
+        filename=template["filename"],
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+
+
+@app.put("/api/templates/{template_id}/set-default")
+async def set_default_template(template_id: str):
+    """Set a template as default"""
+    success = template_manager.set_default_template(template_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Template not found")
+    return {"message": "Template set as default"}
+
+
+@app.delete("/api/templates/{template_id}")
+async def delete_template(template_id: str):
+    """Delete a template"""
+    success = template_manager.delete_template(template_id)
+    if not success:
+        raise HTTPException(status_code=400, detail="Cannot delete template (not found or is the only template)")
+    return {"message": "Template deleted successfully"}
