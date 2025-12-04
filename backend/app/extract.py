@@ -1,322 +1,467 @@
-"""
-COC-D Data Extraction Module
-
-This module handles extraction of data from PDF files (Company COC and Packing Slip)
-and mapping to template variables.
-"""
-
 import re
+import pdfplumber
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Dict, Any, Optional, List
 from datetime import datetime
 from .config import load_config
+import logging
 
-
-def normalize_date_to_ddmmyyyy(date_str: str) -> str:
-    """
-    Normalize date string to DD.MM.YYYY format.
-
-    Handles various input formats:
-    - DD/MMM/YYYY (e.g., "20/Mar/2025")
-    - DD-MM-YYYY
-    - YYYY-MM-DD
-    - DD.MM.YYYY (already normalized)
-
-    Args:
-        date_str: Input date string
-
-    Returns:
-        Date in DD.MM.YYYY format or empty string if invalid
-    """
-    if not date_str:
-        return ""
-
-    date_str = date_str.strip()
-
-    # Already in correct format
-    if re.match(r'^\d{2}\.\d{2}\.\d{4}$', date_str):
-        return date_str
-
-    # Month name mapping
-    month_map = {
-        'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04',
-        'may': '05', 'jun': '06', 'jul': '07', 'aug': '08',
-        'sep': '09', 'oct': '10', 'nov': '11', 'dec': '12'
-    }
-
-    # Try DD/MMM/YYYY format (e.g., "20/Mar/2025")
-    match = re.match(r'^(\d{1,2})[/\-](\w{3})[/\-](\d{4})$', date_str, re.IGNORECASE)
-    if match:
-        day = match.group(1).zfill(2)
-        month = month_map.get(match.group(2).lower()[:3], '01')
-        year = match.group(3)
-        return f"{day}.{month}.{year}"
-
-    # Try DD-MM-YYYY or DD/MM/YYYY format
-    match = re.match(r'^(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})$', date_str)
-    if match:
-        day = match.group(1).zfill(2)
-        month = match.group(2).zfill(2)
-        year = match.group(3)
-        return f"{day}.{month}.{year}"
-
-    # Try YYYY-MM-DD format
-    match = re.match(r'^(\d{4})[/\-](\d{1,2})[/\-](\d{1,2})$', date_str)
-    if match:
-        year = match.group(1)
-        month = match.group(2).zfill(2)
-        day = match.group(3).zfill(2)
-        return f"{day}.{month}.{year}"
-
-    return date_str
-
-
-def calculate_supplier_serial_no(shipment_no: str, date_str: str) -> str:
-    """
-    Calculate the Supplier Serial Number for the COC document.
-
-    Format: COC_SV_Del{XXX}_{DD.MM.YYYY}.docx
-    Where XXX is the last 3 digits of the shipment number.
-
-    Args:
-        shipment_no: Shipment number (e.g., "6SH264587")
-        date_str: Date string to be normalized
-
-    Returns:
-        Formatted supplier serial number (e.g., "COC_SV_Del587_20.03.2025.docx")
-    """
-    # Extract last 3 digits from shipment number
-    digits = re.sub(r'[^0-9]', '', str(shipment_no))
-    del_number = digits[-3:] if len(digits) >= 3 else digits.zfill(3)
-
-    # Normalize the date
-    normalized_date = normalize_date_to_ddmmyyyy(date_str)
-
-    if not normalized_date:
-        normalized_date = datetime.now().strftime("%d.%m.%Y")
-
-    return f"COC_SV_Del{del_number}_{normalized_date}.docx"
-
-
-def extract_from_company_coc(pdf_path: Optional[str]) -> Dict[str, Any]:
-    """
-    Extract data from Company COC PDF.
-
-    Args:
-        pdf_path: Path to the Company COC PDF file
-
-    Returns:
-        Dictionary containing extracted COC data
-    """
-    if not pdf_path:
-        return {}
-
-    # In production, use PDF extraction library
-    # For now, return sample structure
-    return {
-        "order": "",
-        "customer_part_no": "",
-        "product_name": "",
-        "quantity": 0,
-        "shipment_no": "",
-        "date": "",
-        "acquirer": "",
-        "serials": []
-    }
-
-
-def extract_from_packing_slip(pdf_path: Optional[str]) -> Dict[str, Any]:
-    """
-    Extract data from Packing Slip PDF.
-
-    Args:
-        pdf_path: Path to the Packing Slip PDF file
-
-    Returns:
-        Dictionary containing extracted packing slip data
-    """
-    if not pdf_path:
-        return {}
-
-    # In production, use PDF extraction library
-    # For now, return sample structure
-    return {
-        "delivery_address": "",
-        "shipment_document": "",
-        "packing_slip_no": ""
-    }
-
-
-def map_to_template_vars(coc_data: Dict[str, Any], packing_data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Map extracted data to template variables.
-
-    This function transforms the raw extracted data from COC and Packing Slip
-    into the flat template variable format expected by docxtpl.
-
-    Args:
-        coc_data: Dictionary from Company COC extraction
-        packing_data: Dictionary from Packing Slip extraction
-
-    Returns:
-        Dictionary with all template variables
-    """
-    # Get key values
-    shipment_no = coc_data.get("shipment_no", "")
-    date_str = coc_data.get("date", "")
-
-    # Calculate supplier serial number
-    supplier_serial = calculate_supplier_serial_no(shipment_no, date_str)
-
-    # Extract delivery number from shipment number (last 3 digits)
-    digits = re.sub(r'[^0-9]', '', str(shipment_no))
-    partial_delivery = digits[-3:] if len(digits) >= 3 else digits
-
-    template_vars = {
-        # Supplier Serial No
-        "supplier_serial_no": supplier_serial,
-
-        # Contract fields
-        "contract_number": coc_data.get("order", ""),
-        "contract_item": coc_data.get("customer_part_no", ""),
-
-        # Product info
-        "product_description": coc_data.get("product_name", ""),
-        "quantity": coc_data.get("quantity", 0),
-
-        # Shipment info
-        "shipment_no": shipment_no,
-        "partial_delivery_number": partial_delivery,
-        "final_delivery_number": "N/A",
-
-        # Acquirer and delivery
-        "acquirer": coc_data.get("acquirer", ""),
-        "delivery_address": packing_data.get("delivery_address", ""),
-
-        # Date
-        "date": normalize_date_to_ddmmyyyy(date_str),
-
-        # Undelivered quantity (to be filled manually)
-        "undelivered_quantity": "",
-
-        # Remarks
-        "remarks": "",
-
-        # Serials
-        "serials": coc_data.get("serials", [])
-    }
-
-    return template_vars
-
-
-def validate_extracted_data(template_vars: Dict[str, Any]) -> Dict[str, List[Dict[str, str]]]:
-    """
-    Validate extracted data and identify missing required fields.
-
-    Args:
-        template_vars: Dictionary of template variables
-
-    Returns:
-        Dictionary with 'errors' and 'warnings' lists
-    """
-    errors = []
-    warnings = []
-
-    # Required fields validation
-    required_fields = {
-        "supplier_serial_no": "MISSING_SUPPLIER_SERIAL",
-        "contract_number": "MISSING_CONTRACT_NUMBER",
-        "contract_item": "MISSING_CONTRACT_ITEM",
-        "product_description": "MISSING_PRODUCT_DESCRIPTION",
-        "quantity": "MISSING_QUANTITY"
-    }
-
-    for field, error_code in required_fields.items():
-        value = template_vars.get(field)
-        if not value or (isinstance(value, (int, float)) and value == 0):
-            errors.append({
-                "code": error_code,
-                "message": f"Required field '{field}' is missing or empty",
-                "where": f"template_vars.{field}"
-            })
-
-    # Warnings for optional but recommended fields
-    optional_fields = ["delivery_address", "acquirer", "remarks"]
-    for field in optional_fields:
-        if not template_vars.get(field):
-            warnings.append({
-                "code": f"EMPTY_{field.upper()}",
-                "message": f"Optional field '{field}' is empty",
-                "where": f"template_vars.{field}"
-            })
-
-    return {"errors": errors, "warnings": warnings}
-
+# Use uvicorn logger to ensure logs appear in console
+logger = logging.getLogger("uvicorn")
 
 def extract_from_pdfs(company_coc_path: Optional[str], packing_slip_path: Optional[str]) -> Dict[str, Any]:
-    """
-    Extract data from both PDF files and prepare for rendering.
-
-    This is the main extraction entry point that:
-    1. Extracts data from Company COC PDF
-    2. Extracts data from Packing Slip PDF
-    3. Maps to template variables
-    4. Validates the extracted data
-
-    Args:
-        company_coc_path: Path to Company COC PDF
-        packing_slip_path: Path to Packing Slip PDF
-
-    Returns:
-        Complete extraction result with raw data, template vars, and validation
-    """
-    config = load_config()
-
-    # Extract from both sources
-    coc_data = extract_from_company_coc(company_coc_path)
-    packing_data = extract_from_packing_slip(packing_slip_path)
-
-    # Map to template variables
-    template_vars = map_to_template_vars(coc_data, packing_data)
-
-    # Validate
-    validation = validate_extracted_data(template_vars)
+    """Extract data from PDFs using pdfplumber"""
 
     result = {
-        "extracted_raw": {
-            "from_coc": coc_data,
-            "from_packing_slip": packing_data
-        },
-        "extracted": {
-            "from_packing_slip": packing_data,
-            "from_company_coc": coc_data
-        },
-        "template_vars": template_vars,
+        "extracted": {"from_packing_slip": {}, "from_company_coc": {}},
         "part_I": {},
         "part_II": {},
         "render_vars": {
-            "docx_template": config.get("template_name", "COC_SV_Del165_20.03.2025.docx"),
-            "output_filename": template_vars.get("supplier_serial_no", ""),
-            "date_format": "DD.MM.YYYY"
+            "docx_template": "COC_SV_Del165_20.03.2025.docx",
+            "output_filename": "",
+            "date_format_display": "DD/Mon/YYYY",
+            "date_format_filename": "DD.MM.YYYY"
         },
-        "validation": validation
+        "validation": {"errors": [], "warnings": []}
     }
+
+    # Extract from Company COC
+    if company_coc_path and Path(company_coc_path).exists():
+        logger.info(f"Extracting from Company COC: {company_coc_path}")
+        coc_data = extract_company_coc(company_coc_path)
+        result["extracted"]["from_company_coc"] = coc_data
+        logger.info(f"Extracted COC data: {coc_data}")
+    else:
+        logger.warning(f"Company COC not provided or not found: {company_coc_path}")
+
+    # Extract from Packing Slip
+    if packing_slip_path and Path(packing_slip_path).exists():
+        logger.info(f"Extracting from Packing Slip: {packing_slip_path}")
+        ps_data = extract_packing_slip(packing_slip_path)
+        result["extracted"]["from_packing_slip"] = ps_data
+        logger.info(f"Extracted Packing Slip data: {ps_data}")
+    else:
+        logger.warning(f"Packing Slip not provided or not found: {packing_slip_path}")
+
+    # Merge extracted data into part_I
+    result["part_I"] = merge_extracted_data(
+        result["extracted"]["from_company_coc"],
+        result["extracted"]["from_packing_slip"]
+    )
+
+    logger.info(f"Merged part_I data: {result['part_I']}")
+
+    # Build template_vars from part_I for frontend display AND template rendering
+    result["template_vars"] = {
+        "contract_number": result["part_I"].get("contract_number", ""),
+        "shipment_no": result["part_I"].get("shipment_no", ""),
+        "product_description": result["part_I"].get("product_description", ""),
+        "quantity": str(result["part_I"].get("quantity", "")) if result["part_I"].get("quantity") else "",
+        "supplier_serial_no": result["part_I"].get("coc_no", ""),
+        "manufacturing_date": "",
+        "delivery_date": normalize_date(result["part_I"].get("date", ""), "display"),
+        "invoice_no": "",
+        "invoice_date": "",
+        "final_delivery_number": "",
+        "date": normalize_date(result["part_I"].get("date", ""), "filename") or datetime.now().strftime("%d.%m.%Y"),
+        "delivery_address": result["part_I"].get("ship_to", ""),
+        "acquirer": result["part_I"].get("customer", ""),
+        # CRITICAL FIX: Add serial numbers for template rendering
+        "serials": result["part_I"].get("serials", []),
+        "serial_count": result["part_I"].get("serial_count", 0),
+        # Add QA signer and other fields that might be needed
+        "qa_signer": result["part_I"].get("qa_signer", ""),
+    }
+
+    # Update part_I with serial count for display
+    if "serial_count" in result["part_I"]:
+        result["part_I"]["serial_count"] = result["part_I"]["serial_count"]
 
     return result
 
 
-def normalize_date(date_str: str) -> str:
-    """
-    Normalize date to DD/MMM/YYYY format.
+def extract_company_coc(pdf_path: str) -> Dict[str, Any]:
+    """Extract data from Company COC PDF
 
-    Legacy function - use normalize_date_to_ddmmyyyy for DD.MM.YYYY format.
+    Expected format example:
+    - Order: 697.12.5011.01
+    - Shipment no: 6SH264587
+    - Product: 20580903700; PNR-1000N WPTT
+    - QTY: 100
+    - Serial Numbers: NL13721, NL13722, ...
+    - QA Signer: YESHAYA ORLY
+    - Date: 20/Mar/2025
+    """
+    data = {}
+
+    try:
+        with pdfplumber.open(pdf_path) as pdf:
+            # Get all text from first page
+            if pdf.pages:
+                text = pdf.pages[0].extract_text()
+                logger.debug(f"COC PDF text (first 500 chars): {text[:500]}")
+
+                # Extract Contract/Order number
+                # Pattern: "Order 697.12.5011.01" or "Contract 697.12.5011.01"
+                contract_patterns = [
+                    r'Order[:\s]+(\d+\.\d+\.\d+\.\d+)',
+                    r'Contract[:\s]+(\d+\.\d+\.\d+\.\d+)',
+                    r'Order\s+No[:\s]+(\d+\.\d+\.\d+\.\d+)',
+                ]
+                for pattern in contract_patterns:
+                    contract_match = re.search(pattern, text, re.IGNORECASE)
+                    if contract_match:
+                        data['contract_number'] = contract_match.group(1)
+                        logger.info(f"Found contract number: {data['contract_number']}")
+                        break
+
+                # Extract COC Number
+                # Pattern: "COC011285" - COC followed by exactly 6 digits
+                # The COC number is a standalone identifier, not part of other numbers
+                coc_patterns = [
+                    r'\b(COC\d{6})\b',  # COC followed by exactly 6 digits (word boundaries)
+                    r'COC\s*(?:No\.?|Number)[:\s]+(COC\d{6})',  # "COC No: COC011285" format
+                    r'Certificate\s+(?:No|Number)[:\s]+(COC\d{6})',  # "Certificate No: COC011285"
+                ]
+                for pattern in coc_patterns:
+                    coc_match = re.search(pattern, text, re.IGNORECASE)
+                    if coc_match:
+                        data['coc_no'] = coc_match.group(1)
+                        logger.info(f"Found COC number: {data['coc_no']}")
+                        break
+
+                # Extract Shipment number
+                # Pattern: "Shipment no. 6SH264587" or "Shipment: 6SH264587"
+                shipment_patterns = [
+                    r'Shipment\s+no[.:\s]+(\w+)',
+                    r'Shipment[:\s]+(\w+)',
+                ]
+                for pattern in shipment_patterns:
+                    shipment_match = re.search(pattern, text, re.IGNORECASE)
+                    if shipment_match:
+                        data['shipment_no'] = shipment_match.group(1)
+                        logger.info(f"Found shipment number: {data['shipment_no']}")
+                        break
+
+                # Extract Product info
+                # Pattern: "20580903700 PNR-1000N WPTT" or similar
+                # Need to be careful not to capture too much
+                product_patterns = [
+                    r'(\d{11})\s+(PNR-\S+\s+\w+)',  # More specific: code + PNR-XXX + one word
+                    r'(\d{11})[;\s]+(PNR-[\w-]+(?:\s+\w+)?)',  # code; PNR-XXX optionally one more word
+                    r'(\d{11})\s+([\w-]+Radio[\w\s-]*)',
+                ]
+                for pattern in product_patterns:
+                    product_match = re.search(pattern, text)
+                    if product_match:
+                        data['product_code'] = product_match.group(1)
+                        data['product_name'] = product_match.group(2).strip()
+                        data['product_description'] = f"{product_match.group(1)}; {product_match.group(2).strip()}"
+                        logger.info(f"Found product: {data['product_description']}")
+                        break
+
+                # Extract Quantity
+                # Pattern: Look for quantity field - should be 1-4 digits, not 11 digits
+                # Avoid matching product codes (11 digits)
+                qty_patterns = [
+                    r'(?:QTY|Quantity)\s+(?:Order|Shipped)[:\s]+(\d{1,4})(?:\s|$)',  # 1-4 digits only
+                    r'Quantity[:\s]+(\d{1,4})(?:\s|$)',
+                    r'QTY[:\s]+(\d{1,4})(?:\s|$)',
+                    r'(?:QTY|Quantity).*?(?:Shipped|Delivered)[:\s]+(\d{1,4})',
+                ]
+                for pattern in qty_patterns:
+                    qty_match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
+                    if qty_match:
+                        qty_value = int(qty_match.group(1))
+                        # Sanity check - quantity should be reasonable (1-10000)
+                        if 1 <= qty_value <= 10000:
+                            data['quantity'] = qty_value
+                            logger.info(f"Found quantity: {data['quantity']}")
+                            break
+
+                # Extract Serial Numbers
+                # Pattern: Multiple lines with format "NL13721", "NL13722", etc.
+                # Look for the serial number section and extract all NL##### patterns
+                serial_section_match = re.search(r'Serial\s+Number.*?(?=We certify|Quality|$)', text, re.DOTALL | re.IGNORECASE)
+                if serial_section_match:
+                    serial_text = serial_section_match.group(0)
+                    serials = re.findall(r'NL\d{5}', serial_text)  # NL followed by exactly 5 digits
+                    if serials:
+                        data['serials'] = serials
+                        data['serial_count'] = len(serials)
+                        logger.info(f"Found {len(serials)} serial numbers (first: {serials[0]}, last: {serials[-1]})")
+                else:
+                    # Fallback: search entire document for NL##### patterns
+                    serials = re.findall(r'NL\d{5}', text)
+                    if serials:
+                        data['serials'] = serials
+                        data['serial_count'] = len(serials)
+                        logger.info(f"Found {len(serials)} serial numbers via fallback search")
+
+                # Extract Customer/Acquirer
+                # Pattern: "NETHERLANDS MINISTRY OF DEFENCE" or similar
+                customer_patterns = [
+                    r'(?:Customer|Acquirer)[:\s]+\n?([\w\s]+?)(?:\n\n|\nPart\s+number|$)',
+                    r'(NETHERLANDS MINISTRY OF DEFENCE)',
+                ]
+                for pattern in customer_patterns:
+                    customer_match = re.search(pattern, text, re.IGNORECASE | re.MULTILINE)
+                    if customer_match:
+                        if len(customer_match.groups()) > 0:
+                            data['customer'] = customer_match.group(1).strip()
+                        else:
+                            data['customer'] = customer_match.group(0).strip()
+                        # Clean up any extra newlines or "Customer" prefix
+                        data['customer'] = re.sub(r'^Customer\s*', '', data['customer'], flags=re.IGNORECASE)
+                        data['customer'] = data['customer'].strip()
+                        logger.info(f"Found customer: {data['customer']}")
+                        break
+
+                # Extract QA Signer and Date
+                # Pattern: "YESHAYA ORLY 20/Mar/2025" or similar
+                # Need to capture name (letters and spaces only) before date
+                qa_patterns = [
+                    r'Quality\s+Authority.*?\n([A-Z][A-Z\s]+?)\s+\d+\s+(\d+/\w+/\d+)',  # Name, then number, then date
+                    r'Quality\s+Authority.*?\n([A-Z][A-Z\s]+?)\s+(\d+/\w+/\d+)',  # Name directly before date
+                    r'QA.*?\n([A-Z][A-Z\s]+?)\s+(\d+/\w+/\d+)',
+                ]
+                for pattern in qa_patterns:
+                    qa_match = re.search(pattern, text, re.DOTALL)
+                    if qa_match:
+                        data['qa_signer'] = qa_match.group(1).strip()
+                        data['date'] = qa_match.group(2)
+                        logger.info(f"Found QA signer: {data['qa_signer']}, Date: {data['date']}")
+                        break
+
+    except Exception as e:
+        logger.error(f"Error extracting from Company COC: {str(e)}", exc_info=True)
+        data['extraction_error'] = str(e)
+
+    return data
+
+
+def extract_packing_slip(pdf_path: str) -> Dict[str, Any]:
+    """Extract data from Packing Slip PDF
+
+    Expected format example:
+    - Ship To: [address]
+    - Contract: 697.12.5011.01
+    - Customer Item: 123456
+    - Part No: 20580903700
+    - Description: PNR-1000N WPTT
+    - Quantity: 100.00 EA
+    """
+    data = {}
+
+    try:
+        with pdfplumber.open(pdf_path) as pdf:
+            if pdf.pages:
+                text = pdf.pages[0].extract_text()
+                logger.debug(f"Packing Slip PDF text (first 500 chars): {text[:500]}")
+
+                # Extract Ship To address
+                ship_to_match = re.search(r'Ship\s+To[:\s]+([\s\S]+?)(?:Sold\s+To|Contract|Our\s+Reference)', text, re.IGNORECASE)
+                if ship_to_match:
+                    data['ship_to'] = ship_to_match.group(1).strip()
+                    # Clean up - take first few lines, remove "Sold To:" if it appears
+                    ship_lines = data['ship_to'].split('\n')[:5]
+                    cleaned_lines = []
+                    for line in ship_lines:
+                        line = line.strip()
+                        # Skip lines that contain "Sold To" or "BCD"
+                        if line and not re.search(r'Sold\s+To|^BCD\s', line, re.IGNORECASE):
+                            cleaned_lines.append(line)
+                    data['ship_to'] = '\n'.join(cleaned_lines)
+                    logger.info(f"Found ship to: {data['ship_to'][:50]}...")
+
+                # Extract Shipment number from Packing Slip
+                # Pattern: "Packing Slip 6SH264587" in header
+                shipment_patterns = [
+                    r'Packing\s+Slip\s+([A-Z0-9]{8,12})',  # "Packing Slip 6SH264587"
+                    r'Shipment[:\s]+([A-Z0-9]{8,12})',  # "Shipment: 6SH264587"
+                    r'\b(\d{1,2}[A-Z]{2}\d{6})\b',  # Elbit format: "6SH264587"
+                ]
+                for pattern in shipment_patterns:
+                    shipment_match = re.search(pattern, text, re.IGNORECASE)
+                    if shipment_match:
+                        data['shipment_no'] = shipment_match.group(1)
+                        logger.info(f"Found shipment number: {data['shipment_no']}")
+                        break
+
+                # Fallback: Try to extract from filename
+                if 'shipment_no' not in data:
+                    filename = Path(pdf_path).name
+                    filename_pattern = r'Packing[_\s]?Slip[_\s]?([A-Z0-9]{8,12})'
+                    filename_match = re.search(filename_pattern, filename, re.IGNORECASE)
+                    if filename_match:
+                        data['shipment_no'] = filename_match.group(1)
+                        logger.info(f"Found shipment number from filename: {data['shipment_no']}")
+
+                # Extract Contract number
+                contract_patterns = [
+                    r'Contract[:\s]+[\w\s]*?([\d.]+)',
+                    r'Our\s+Reference[:\s]+([\d.]+)',
+                ]
+                for pattern in contract_patterns:
+                    contract_match = re.search(pattern, text, re.IGNORECASE)
+                    if contract_match:
+                        data['contract_number'] = contract_match.group(1).strip()
+                        logger.info(f"Found contract: {data['contract_number']}")
+                        break
+
+                # Extract Customer Item
+                cust_item_match = re.search(r'Customers?\s+Item[:\s]+(\d+)', text, re.IGNORECASE)
+                if cust_item_match:
+                    data['customer_item'] = cust_item_match.group(1)
+                    logger.info(f"Found customer item: {data['customer_item']}")
+
+                # Extract Part Number and Description
+                # Pattern: "20580903700 PNR-1000N WPTT 100.00 EA"
+                part_patterns = [
+                    r'(\d{11})\s+([\w\s-]+?)\s+(\d+\.\d+)\s+EA',
+                    r'Part\s+No[:\s]+(\d{11}).*?Description[:\s]+([\w\s-]+)',
+                ]
+                for pattern in part_patterns:
+                    part_match = re.search(pattern, text, re.DOTALL)
+                    if part_match:
+                        data['part_no'] = part_match.group(1)
+                        data['description'] = part_match.group(2).strip()
+                        if len(part_match.groups()) >= 3:
+                            try:
+                                data['quantity'] = int(float(part_match.group(3)))
+                            except:
+                                pass
+                        logger.info(f"Found part: {data['part_no']} - {data.get('description')}")
+                        break
+
+                # Extract Quantity if not found above
+                if 'quantity' not in data:
+                    qty_patterns = [
+                        r'(\d+\.\d+)\s+EA',
+                        r'Quantity[:\s]+(\d+)',
+                    ]
+                    for pattern in qty_patterns:
+                        qty_match = re.search(pattern, text, re.IGNORECASE)
+                        if qty_match:
+                            try:
+                                data['quantity'] = int(float(qty_match.group(1)))
+                                logger.info(f"Found quantity: {data['quantity']}")
+                            except:
+                                pass
+                            break
+
+    except Exception as e:
+        logger.error(f"Error extracting from Packing Slip: {str(e)}", exc_info=True)
+        data['extraction_error'] = str(e)
+
+    return data
+
+
+def merge_extracted_data(coc_data: Dict, ps_data: Dict) -> Dict[str, Any]:
+    """Merge data from both sources, preferring COC data when available
+
+    Priority:
+    1. Company COC data (primary source for most fields)
+    2. Packing Slip data (fallback or additional fields)
+    """
+    merged = {}
+
+    # Contract number - prefer PS (more reliable), fallback to COC
+    merged['contract_number'] = ps_data.get('contract_number') or coc_data.get('contract_number') or ''
+
+    # COC Number - only from COC
+    merged['coc_no'] = coc_data.get('coc_no') or ''
+
+    # Shipment number - prefer COC, fallback to Packing Slip (for PS-only mode)
+    merged['shipment_no'] = coc_data.get('shipment_no') or ps_data.get('shipment_no') or ''
+
+    # Quantity - prefer PS (more reliable format), fallback to COC
+    merged['quantity'] = ps_data.get('quantity') or coc_data.get('quantity') or 0
+
+    # Serial numbers - only from COC
+    merged['serials'] = coc_data.get('serials', [])
+    merged['serial_count'] = len(merged['serials'])
+
+    # Product description - build from available data
+    product_parts = []
+    if coc_data.get('product_code'):
+        product_parts.append(coc_data['product_code'])
+    elif ps_data.get('part_no'):
+        product_parts.append(ps_data['part_no'])
+
+    if coc_data.get('product_name'):
+        product_parts.append(coc_data['product_name'])
+    elif ps_data.get('description'):
+        product_parts.append(ps_data['description'])
+
+    if ps_data.get('customer_item'):
+        product_parts.append(f"Customer Item {ps_data['customer_item']}")
+
+    merged['product_description'] = '; '.join(product_parts) if product_parts else ''
+
+    # Customer/Acquirer - from COC or Ship To from PS
+    merged['customer'] = coc_data.get('customer') or ''
+    merged['ship_to'] = ps_data.get('ship_to') or ''
+
+    # Date - from COC
+    merged['date'] = coc_data.get('date') or ''
+
+    # QA Signer - from COC
+    merged['qa_signer'] = coc_data.get('qa_signer') or ''
+
+    logger.info(f"Merged data - contract: {merged.get('contract_number')}, "
+                f"shipment: {merged.get('shipment_no')}, "
+                f"quantity: {merged.get('quantity')}, "
+                f"serials: {merged.get('serial_count')}")
+
+    return merged
+
+
+def normalize_date(date_str: str, output_format: str = "display") -> str:
+    """Normalize date to specified format
 
     Args:
-        date_str: Input date string
+        date_str: Input date string in various formats
+        output_format: 'display' for DD/Mon/YYYY (e.g., 20/Mar/2025)
+                      or 'filename' for DD.MM.YYYY (e.g., 20.03.2025)
 
     Returns:
-        Normalized date string
+        Formatted date string
     """
     if not date_str:
         return ""
-    return normalize_date_to_ddmmyyyy(date_str)
+
+    # If already in correct format for display, check if it matches
+    if output_format == "display" and re.match(r'\d{2}/\w{3}/\d{4}', date_str):
+        return date_str
+
+    # Try to parse various common date formats
+    date_formats = [
+        "%d/%m/%Y",      # 20/03/2025
+        "%d.%m.%Y",      # 20.03.2025
+        "%d-%m-%Y",      # 20-03-2025
+        "%d/%b/%Y",      # 20/Mar/2025
+        "%d/%B/%Y",      # 20/March/2025
+        "%Y-%m-%d",      # 2025-03-20
+        "%d.%m.%y",      # 20.03.25
+        "%d/%m/%y",      # 20/03/25
+    ]
+
+    parsed_date = None
+    for fmt in date_formats:
+        try:
+            parsed_date = datetime.strptime(date_str.strip(), fmt)
+            break
+        except ValueError:
+            continue
+
+    if not parsed_date:
+        # If parsing fails, return original
+        logger.warning(f"Could not normalize date: {date_str}")
+        return date_str
+
+    # Format based on requested output
+    if output_format == "filename":
+        return parsed_date.strftime("%d.%m.%Y")
+    else:  # display format
+        return parsed_date.strftime("%d/%b/%Y")
