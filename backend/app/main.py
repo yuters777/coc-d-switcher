@@ -191,6 +191,10 @@ async def render_job(job_id: str):
     # Convert to PDF
     pdf_path = convert_to_pdf(docx_path)
 
+    # Get template info
+    default_template = template_manager.get_default_template()
+    template_info = default_template if default_template else {"name": "Default", "version": "1.0"}
+
     # Update job with rendered file paths
     jobs_db[job_id]['rendered_files'] = {
         'docx': str(docx_path),
@@ -201,6 +205,8 @@ async def render_job(job_id: str):
 
     return {
         "message": "Documents rendered successfully",
+        "rendered_file": str(docx_path),
+        "template_used": template_info,
         "files": {
             "docx": str(docx_path),
             "pdf": str(pdf_path)

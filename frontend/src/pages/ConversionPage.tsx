@@ -126,14 +126,19 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
   };
 
   const handleUploadFiles = async () => {
+    console.log('handleUploadFiles called', { jobId: jobState.jobId, files: jobState.files });
+
     if (!jobState.jobId) {
+      console.log('No job ID, creating job first...');
       await handleCreateJob();
       return;
     }
 
     // Packing slip is required, COC is optional
     if (!jobState.files?.packing) {
-      return; // Validation handled by UI
+      console.log('No packing slip file selected');
+      alert('Please select a Packing Slip PDF file');
+      return;
     }
 
     setLoading(true);
@@ -143,28 +148,38 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
     // Add COC file if provided (optional)
     if (jobState.files.coc) {
       formData.append('company_coc', jobState.files.coc);
+      console.log('Added COC file to form:', jobState.files.coc.name);
     }
 
     // Add packing slip (required)
     formData.append('packing_slip', jobState.files.packing);
+    console.log('Added packing slip to form:', jobState.files.packing.name);
 
     try {
+      console.log('Sending upload request to:', `${API_BASE}/api/jobs/${jobState.jobId}/files`);
       const response = await fetch(`${API_BASE}/api/jobs/${jobState.jobId}/files`, {
         method: 'POST',
         body: formData
       });
 
+      console.log('Upload response:', response.status, response.ok);
+
       if (response.ok) {
+        const data = await response.json();
+        console.log('Upload successful:', data);
         // Automatically parse after upload
         setLoadingMessage('Extracting data from PDFs...');
         await handleParse();
       } else {
-        console.error('Upload failed');
+        const errorText = await response.text();
+        console.error('Upload failed:', response.status, errorText);
+        alert(`Upload failed: ${errorText}`);
         setLoading(false);
         setLoadingMessage('');
       }
     } catch (error) {
       console.error('Upload error:', error);
+      alert(`Upload error: ${error instanceof Error ? error.message : 'Unknown error'}`);
       setLoading(false);
       setLoadingMessage('');
     }
@@ -293,11 +308,13 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
         if (renderResponse.ok) {
           const renderData = await renderResponse.json();
           console.log('Render result:', renderData);
+          // Handle both old format (rendered_file) and new format (files.docx)
+          const docxFile = renderData.rendered_file || renderData.files?.docx || 'document.docx';
           setJobState(prev => ({
             ...prev,
             renderedFiles: {
-              docx: renderData.rendered_file,
-              template: renderData.template_used
+              docx: docxFile,
+              template: renderData.template_used || { name: 'Default', version: '1.0' }
             }
           }));
           // Auto-progress to download (step 3)
