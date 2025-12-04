@@ -9,6 +9,7 @@ import logging
 import os
 import re
 import subprocess
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -623,7 +624,7 @@ def render_docx(conv_json: Dict[str, Any], job_id: str, template_path: Optional[
         if template_file is None:
             logger.error(f"No template file found. Checked: {template_candidates}")
             # Fall back to placeholder for development
-            out_path = Path(f"/tmp/coc-{job_id}.docx")
+            out_path = Path(tempfile.gettempdir()) / f"coc-{job_id}.docx"
             import json
             with open(out_path, 'w') as f:
                 json.dump(conv_json, f, indent=2)
@@ -643,8 +644,8 @@ def render_docx(conv_json: Dict[str, Any], job_id: str, template_path: Optional[
     logger.info(f"Rendering template: {template_file}")
     logger.debug(f"Context keys: {list(context.keys())}")
 
-    # Output path
-    out_path = Path(f"/tmp/coc-{job_id}.docx")
+    # Output path (cross-platform)
+    out_path = Path(tempfile.gettempdir()) / f"coc-{job_id}.docx"
 
     try:
         # Load and render template

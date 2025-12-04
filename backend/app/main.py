@@ -1,4 +1,5 @@
 import os
+import tempfile
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -28,7 +29,8 @@ app.add_middleware(
 )
 
 jobs_db: Dict[str, Dict[str, Any]] = {}
-UPLOAD_DIR = Path("/tmp/coc-uploads")
+# Use system temp directory for cross-platform compatibility
+UPLOAD_DIR = Path(tempfile.gettempdir()) / "coc-uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
 
 class JobCreate(BaseModel):
