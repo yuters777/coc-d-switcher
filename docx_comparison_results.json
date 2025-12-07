@@ -1,0 +1,298 @@
+{
+  "expected": {
+    "filename": "COC_SV_Del165_20.03.2025.docx",
+    "paragraphs": [],
+    "tables": [
+      {
+        "table_number": 1,
+        "rows": 10,
+        "cols": 6,
+        "data": [
+          [
+            "Certificate of Conformity – Part I",
+            "Certificate of Conformity – Part I",
+            "Certificate of Conformity – Part I",
+            "Supplier Serial No: \nCOC_SV_Del165_20.03.2025.docx",
+            "Supplier Serial No: \nCOC_SV_Del165_20.03.2025.docx",
+            "Supplier Serial No: \nCOC_SV_Del165_20.03.2025.docx"
+          ],
+          [
+            "Supplier (include Name, Address, E-mail etc.):\n\nElbit Systems C4I and Cyber Ltd\n2 Hamachshev , Netanya\nIsrael\n\nIdo Shilo       \nemail: Ido.Shilo@elbitsystems.com",
+            "Supplier (include Name, Address, E-mail etc.):\n\nElbit Systems C4I and Cyber Ltd\n2 Hamachshev , Netanya\nIsrael\n\nIdo Shilo       \nemail: Ido.Shilo@elbitsystems.com",
+            "Supplier (include Name, Address, E-mail etc.):\n\nElbit Systems C4I and Cyber Ltd\n2 Hamachshev , Netanya\nIsrael\n\nIdo Shilo       \nemail: Ido.Shilo@elbitsystems.com",
+            "Contract Number:\n697.12.5011.01",
+            "Contract Number:\n697.12.5011.01",
+            "Contract Number:\n697.12.5011.01"
+          ],
+          [
+            "Supplier (include Name, Address, E-mail etc.):\n\nElbit Systems C4I and Cyber Ltd\n2 Hamachshev , Netanya\nIsrael\n\nIdo Shilo       \nemail: Ido.Shilo@elbitsystems.com",
+            "Supplier (include Name, Address, E-mail etc.):\n\nElbit Systems C4I and Cyber Ltd\n2 Hamachshev , Netanya\nIsrael\n\nIdo Shilo       \nemail: Ido.Shilo@elbitsystems.com",
+            "Supplier (include Name, Address, E-mail etc.):\n\nElbit Systems C4I and Cyber Ltd\n2 Hamachshev , Netanya\nIsrael\n\nIdo Shilo       \nemail: Ido.Shilo@elbitsystems.com",
+            "Contract Modification Number:  \nAMENDEMENT 15-12-2020 VOSS additional order C4I solution and deliveries 11-12-2020\n10-01-2022 Amendment to the Agreement TCP 187, TCP 192, TCP 193 DMO signed\nApproved TCP’s list",
+            "Contract Modification Number:  \nAMENDEMENT 15-12-2020 VOSS additional order C4I solution and deliveries 11-12-2020\n10-01-2022 Amendment to the Agreement TCP 187, TCP 192, TCP 193 DMO signed\nApproved TCP’s list",
+            "Contract Modification Number:  \nAMENDEMENT 15-12-2020 VOSS additional order C4I solution and deliveries 11-12-2020\n10-01-2022 Amendment to the Agreement TCP 187, TCP 192, TCP 193 DMO signed\nApproved TCP’s list"
+          ],
+          [
+            "Approved Deviations and/or Concessions:\nSee remarks in Box 14.\nELB_VOS_POR001\nELB_VOS_CE0003\nELB_VOS_SEC001\nELB_VOS_CE0004",
+            "Approved Deviations and/or Concessions:\nSee remarks in Box 14.\nELB_VOS_POR001\nELB_VOS_CE0003\nELB_VOS_SEC001\nELB_VOS_CE0004",
+            "Approved Deviations and/or Concessions:\nSee remarks in Box 14.\nELB_VOS_POR001\nELB_VOS_CE0003\nELB_VOS_SEC001\nELB_VOS_CE0004",
+            "Acquirer (include Name, Address, email etc.)\nNETHERLANDS MINISTRY OF DEFENCE COMMIT\nProjects Procurement Division\nHerculeslaan 1\n3584 AB Utrecht MPC 55 A\nThe Netherlands",
+            "Acquirer (include Name, Address, email etc.)\nNETHERLANDS MINISTRY OF DEFENCE COMMIT\nProjects Procurement Division\nHerculeslaan 1\n3584 AB Utrecht MPC 55 A\nThe Netherlands",
+            "Acquirer (include Name, Address, email etc.)\nNETHERLANDS MINISTRY OF DEFENCE COMMIT\nProjects Procurement Division\nHerculeslaan 1\n3584 AB Utrecht MPC 55 A\nThe Netherlands"
+          ],
+          [
+            "Delivery Address:\nBCD\nCamp New Amsterdam\nDolderseweg 34\n3712 BR Huis ter Heide\nNetherlands",
+            "Delivery Address:\nBCD\nCamp New Amsterdam\nDolderseweg 34\n3712 BR Huis ter Heide\nNetherlands",
+            "Delivery Address:\nBCD\nCamp New Amsterdam\nDolderseweg 34\n3712 BR Huis ter Heide\nNetherlands",
+            "Applicable to:\n\nPartial Delivery Number: 165\n\nFinal Delivery Number:   N/A",
+            "Applicable to:\n\nPartial Delivery Number: 165\n\nFinal Delivery Number:   N/A",
+            "Applicable to:\n\nPartial Delivery Number: 165\n\nFinal Delivery Number:   N/A"
+          ],
+          [
+            "9.  Contract Item",
+            "9.  Contract Item",
+            "10.  Product Description or Part",
+            "11. Quantity",
+            "12. Shipment Document",
+            "13. Undelivered\nQuantity"
+          ],
+          [
+            "20000646041",
+            "20000646041",
+            "PNR-1000N WPTT",
+            "100",
+            "Packing Slip: \n6SH264587\n\nDelivery by DSV.",
+            "4196 (of 8115)"
+          ],
+          [
+            "14.  Remarks or Comments:\nPNR-1000N's SW Ver. # 2.2.15.45",
+            "14.  Remarks or Comments:\nPNR-1000N's SW Ver. # 2.2.15.45",
+            "14.  Remarks or Comments:\nPNR-1000N's SW Ver. # 2.2.15.45",
+            "14.  Remarks or Comments:\nPNR-1000N's SW Ver. # 2.2.15.45",
+            "14.  Remarks or Comments:\nPNR-1000N's SW Ver. # 2.2.15.45",
+            "14.  Remarks or Comments:\nPNR-1000N's SW Ver. # 2.2.15.45"
+          ],
+          [
+            "15. Supplier Statement of Quality:\nIt is certified that apart from the approved deviation permits/concessions noted in block 5 above, the products listed above conform in all respects to the contract requirements.",
+            "15. Supplier Statement of Quality:\nIt is certified that apart from the approved deviation permits/concessions noted in block 5 above, the products listed above conform in all respects to the contract requirements.",
+            "15. Supplier Statement of Quality:\nIt is certified that apart from the approved deviation permits/concessions noted in block 5 above, the products listed above conform in all respects to the contract requirements.",
+            "15. Supplier Statement of Quality:\nIt is certified that apart from the approved deviation permits/concessions noted in block 5 above, the products listed above conform in all respects to the contract requirements.",
+            "15. Supplier Statement of Quality:\nIt is certified that apart from the approved deviation permits/concessions noted in block 5 above, the products listed above conform in all respects to the contract requirements.",
+            "15. Supplier Statement of Quality:\nIt is certified that apart from the approved deviation permits/concessions noted in block 5 above, the products listed above conform in all respects to the contract requirements."
+          ],
+          [
+            "Date:\n\n20.03.2025",
+            "Supplier Name and Title\n(member of certifying staff):\nRonen Shamir\nSmartVest QA Manager\nElbit Systems – C4I and Cyber",
+            "Supplier Name and Title\n(member of certifying staff):\nRonen Shamir\nSmartVest QA Manager\nElbit Systems – C4I and Cyber",
+            "Supplier Name and Title\n(member of certifying staff):\nRonen Shamir\nSmartVest QA Manager\nElbit Systems – C4I and Cyber",
+            "Stamp and\nSupplier Signature:",
+            "Stamp and\nSupplier Signature:"
+          ]
+        ]
+      },
+      {
+        "table_number": 2,
+        "rows": 6,
+        "cols": 5,
+        "data": [
+          [
+            "Certificate of Conformity – Part II",
+            "Certificate of Conformity – Part II",
+            "Supplier CoC Serial No: \nCOC_SV_Del165_20.03.2025.docx",
+            "Supplier CoC Serial No: \nCOC_SV_Del165_20.03.2025.docx",
+            "Supplier CoC Serial No: \nCOC_SV_Del165_20.03.2025.docx"
+          ],
+          [
+            "Supplier:\n\nElbit Systems C4I and Cyber Ltd\n2 Hamachshev , Netanya\nIsrael\n\nIdo Shilo       \nemail: Ido.Shilo@elbitsystems.com",
+            "Supplier:\n\nElbit Systems C4I and Cyber Ltd\n2 Hamachshev , Netanya\nIsrael\n\nIdo Shilo       \nemail: Ido.Shilo@elbitsystems.com",
+            "Supplier:\n\nElbit Systems C4I and Cyber Ltd\n2 Hamachshev , Netanya\nIsrael\n\nIdo Shilo       \nemail: Ido.Shilo@elbitsystems.com",
+            "Supplier:\n\nElbit Systems C4I and Cyber Ltd\n2 Hamachshev , Netanya\nIsrael\n\nIdo Shilo       \nemail: Ido.Shilo@elbitsystems.com",
+            "Supplier:\n\nElbit Systems C4I and Cyber Ltd\n2 Hamachshev , Netanya\nIsrael\n\nIdo Shilo       \nemail: Ido.Shilo@elbitsystems.com"
+          ],
+          [
+            "Contract Number:\n697.12.5011.01",
+            "Contract Number:\n697.12.5011.01",
+            "Contract Number:\n697.12.5011.01",
+            "Contract Modification Number:  \nAMENDEMENT 15-12-2020 VOSS additional order C4I solution and deliveries 11-12-2020\n10-01-2022 Amendment to the Agreement TCP 187, TCP 192, TCP 193 DMO signed\nApproved TCP's list",
+            "Contract Modification Number:  \nAMENDEMENT 15-12-2020 VOSS additional order C4I solution and deliveries 11-12-2020\n10-01-2022 Amendment to the Agreement TCP 187, TCP 192, TCP 193 DMO signed\nApproved TCP's list"
+          ],
+          [
+            "Remarks or Comments:",
+            "Remarks or Comments:",
+            "Remarks or Comments:",
+            "Remarks or Comments:",
+            "Remarks or Comments:"
+          ],
+          [
+            "Government Quality Assurance Representative Statement of GQA:\n\n\n(the GQAR Statement of GQA above and the GQAR signature below do not mean acceptance on behalf of the Acquirer and/or Delegator of the supplies identified by the Supplier in Part I, do not necessary mean that the individual items have been inspected, nor do they mean that certification has been granted).",
+            "Government Quality Assurance Representative Statement of GQA:\n\n\n(the GQAR Statement of GQA above and the GQAR signature below do not mean acceptance on behalf of the Acquirer and/or Delegator of the supplies identified by the Supplier in Part I, do not necessary mean that the individual items have been inspected, nor do they mean that certification has been granted).",
+            "Government Quality Assurance Representative Statement of GQA:\n\n\n(the GQAR Statement of GQA above and the GQAR signature below do not mean acceptance on behalf of the Acquirer and/or Delegator of the supplies identified by the Supplier in Part I, do not necessary mean that the individual items have been inspected, nor do they mean that certification has been granted).",
+            "Government Quality Assurance Representative Statement of GQA:\n\n\n(the GQAR Statement of GQA above and the GQAR signature below do not mean acceptance on behalf of the Acquirer and/or Delegator of the supplies identified by the Supplier in Part I, do not necessary mean that the individual items have been inspected, nor do they mean that certification has been granted).",
+            "Government Quality Assurance Representative Statement of GQA:\n\n\n(the GQAR Statement of GQA above and the GQAR signature below do not mean acceptance on behalf of the Acquirer and/or Delegator of the supplies identified by the Supplier in Part I, do not necessary mean that the individual items have been inspected, nor do they mean that certification has been granted)."
+          ],
+          [
+            "Date: Date:",
+            "GQAR Information:\n\nName: R. Kompier\n\nPhone Number: +31620415178\n\nE-mail Address:",
+            "GQAR Information:\n\nName: R. Kompier\n\nPhone Number: +31620415178\n\nE-mail Address:",
+            "GQAR Information:\n\nName: R. Kompier\n\nPhone Number: +31620415178\n\nE-mail Address:",
+            "GQAR Signature:"
+          ]
+        ]
+      }
+    ],
+    "metadata": {
+      "author": "SmartVest",
+      "title": "CoC",
+      "created": "2024-10-08 06:49:00",
+      "modified": "2025-10-16 11:30:00"
+    }
+  },
+  "actual": {
+    "filename": "COC_SV_Del100_18.11.2025.docx",
+    "paragraphs": [],
+    "tables": [
+      {
+        "table_number": 1,
+        "rows": 10,
+        "cols": 6,
+        "data": [
+          [
+            "Certificate of Conformity – Part I",
+            "Certificate of Conformity – Part I",
+            "Certificate of Conformity – Part I",
+            "Supplier Serial No:",
+            "Supplier Serial No:",
+            "Supplier Serial No:"
+          ],
+          [
+            "Supplier (include Name, Address, E-mail etc.):\n\nElbit Systems C4I and Cyber Ltd\n2 Hamachshev , Netanya\nIsrael\n\nIdo Shilo       \nemail: Ido.Shilo@elbitsystems.com",
+            "Supplier (include Name, Address, E-mail etc.):\n\nElbit Systems C4I and Cyber Ltd\n2 Hamachshev , Netanya\nIsrael\n\nIdo Shilo       \nemail: Ido.Shilo@elbitsystems.com",
+            "Supplier (include Name, Address, E-mail etc.):\n\nElbit Systems C4I and Cyber Ltd\n2 Hamachshev , Netanya\nIsrael\n\nIdo Shilo       \nemail: Ido.Shilo@elbitsystems.com",
+            "Contract Number:",
+            "Contract Number:",
+            "Contract Number:"
+          ],
+          [
+            "Supplier (include Name, Address, E-mail etc.):\n\nElbit Systems C4I and Cyber Ltd\n2 Hamachshev , Netanya\nIsrael\n\nIdo Shilo       \nemail: Ido.Shilo@elbitsystems.com",
+            "Supplier (include Name, Address, E-mail etc.):\n\nElbit Systems C4I and Cyber Ltd\n2 Hamachshev , Netanya\nIsrael\n\nIdo Shilo       \nemail: Ido.Shilo@elbitsystems.com",
+            "Supplier (include Name, Address, E-mail etc.):\n\nElbit Systems C4I and Cyber Ltd\n2 Hamachshev , Netanya\nIsrael\n\nIdo Shilo       \nemail: Ido.Shilo@elbitsystems.com",
+            "Contract Modification Number:  \nAMENDEMENT 15-12-2020 VOSS additional order C4I solution and deliveries 11-12-2020\n10-01-2022 Amendment to the Agreement TCP 187, TCP 192, TCP 193 DMO signed\nApproved TCP’s list",
+            "Contract Modification Number:  \nAMENDEMENT 15-12-2020 VOSS additional order C4I solution and deliveries 11-12-2020\n10-01-2022 Amendment to the Agreement TCP 187, TCP 192, TCP 193 DMO signed\nApproved TCP’s list",
+            "Contract Modification Number:  \nAMENDEMENT 15-12-2020 VOSS additional order C4I solution and deliveries 11-12-2020\n10-01-2022 Amendment to the Agreement TCP 187, TCP 192, TCP 193 DMO signed\nApproved TCP’s list"
+          ],
+          [
+            "Approved Deviations and/or Concessions:\nSee remarks in Box 14.\nELB_VOS_POR001\nELB_VOS_CE0003\nELB_VOS_SEC001\nELB_VOS_CE0004",
+            "Approved Deviations and/or Concessions:\nSee remarks in Box 14.\nELB_VOS_POR001\nELB_VOS_CE0003\nELB_VOS_SEC001\nELB_VOS_CE0004",
+            "Approved Deviations and/or Concessions:\nSee remarks in Box 14.\nELB_VOS_POR001\nELB_VOS_CE0003\nELB_VOS_SEC001\nELB_VOS_CE0004",
+            "Acquirer (include Name, Address, email etc.)",
+            "Acquirer (include Name, Address, email etc.)",
+            "Acquirer (include Name, Address, email etc.)"
+          ],
+          [
+            "Delivery Address:",
+            "Delivery Address:",
+            "Delivery Address:",
+            "Applicable to:\n\nPartial Delivery Number: \n\nFinal Delivery Number:   N/A",
+            "Applicable to:\n\nPartial Delivery Number: \n\nFinal Delivery Number:   N/A",
+            "Applicable to:\n\nPartial Delivery Number: \n\nFinal Delivery Number:   N/A"
+          ],
+          [
+            "9.  Contract Item",
+            "9.  Contract Item",
+            "10.  Product Description or Part",
+            "11. Quantity",
+            "12. Shipment Document",
+            "13. Undelivered\nQuantity"
+          ],
+          [
+            "",
+            "",
+            "",
+            "",
+            "Packing Slip: \n\nDelivery by DSV.",
+            "4196 (of 8115)"
+          ],
+          [
+            "14.  Remarks or Comments:\nSW Ver. # 2.2.15.45",
+            "14.  Remarks or Comments:\nSW Ver. # 2.2.15.45",
+            "14.  Remarks or Comments:\nSW Ver. # 2.2.15.45",
+            "14.  Remarks or Comments:\nSW Ver. # 2.2.15.45",
+            "14.  Remarks or Comments:\nSW Ver. # 2.2.15.45",
+            "14.  Remarks or Comments:\nSW Ver. # 2.2.15.45"
+          ],
+          [
+            "15. Supplier Statement of Quality:\nIt is certified that apart from the approved deviation permits/concessions noted in block 5 above, the products listed above conform in all respects to the contract requirements.",
+            "15. Supplier Statement of Quality:\nIt is certified that apart from the approved deviation permits/concessions noted in block 5 above, the products listed above conform in all respects to the contract requirements.",
+            "15. Supplier Statement of Quality:\nIt is certified that apart from the approved deviation permits/concessions noted in block 5 above, the products listed above conform in all respects to the contract requirements.",
+            "15. Supplier Statement of Quality:\nIt is certified that apart from the approved deviation permits/concessions noted in block 5 above, the products listed above conform in all respects to the contract requirements.",
+            "15. Supplier Statement of Quality:\nIt is certified that apart from the approved deviation permits/concessions noted in block 5 above, the products listed above conform in all respects to the contract requirements.",
+            "15. Supplier Statement of Quality:\nIt is certified that apart from the approved deviation permits/concessions noted in block 5 above, the products listed above conform in all respects to the contract requirements."
+          ],
+          [
+            "Date:",
+            "Supplier Name and Title\n(member of certifying staff):\nRonen Shamir\nSmartVest QA Manager\nElbit Systems – C4I and Cyber",
+            "Supplier Name and Title\n(member of certifying staff):\nRonen Shamir\nSmartVest QA Manager\nElbit Systems – C4I and Cyber",
+            "Supplier Name and Title\n(member of certifying staff):\nRonen Shamir\nSmartVest QA Manager\nElbit Systems – C4I and Cyber",
+            "Stamp and\nSupplier Signature:",
+            "Stamp and\nSupplier Signature:"
+          ]
+        ]
+      },
+      {
+        "table_number": 2,
+        "rows": 6,
+        "cols": 5,
+        "data": [
+          [
+            "Certificate of Conformity – Part II",
+            "Certificate of Conformity – Part II",
+            "Supplier CoC Serial No:",
+            "Supplier CoC Serial No:",
+            "Supplier CoC Serial No:"
+          ],
+          [
+            "Supplier:\n\nElbit Systems C4I and Cyber Ltd\n2 Hamachshev , Netanya\nIsrael\n\nIdo Shilo       \nemail: Ido.Shilo@elbitsystems.com",
+            "Supplier:\n\nElbit Systems C4I and Cyber Ltd\n2 Hamachshev , Netanya\nIsrael\n\nIdo Shilo       \nemail: Ido.Shilo@elbitsystems.com",
+            "Supplier:\n\nElbit Systems C4I and Cyber Ltd\n2 Hamachshev , Netanya\nIsrael\n\nIdo Shilo       \nemail: Ido.Shilo@elbitsystems.com",
+            "Supplier:\n\nElbit Systems C4I and Cyber Ltd\n2 Hamachshev , Netanya\nIsrael\n\nIdo Shilo       \nemail: Ido.Shilo@elbitsystems.com",
+            "Supplier:\n\nElbit Systems C4I and Cyber Ltd\n2 Hamachshev , Netanya\nIsrael\n\nIdo Shilo       \nemail: Ido.Shilo@elbitsystems.com"
+          ],
+          [
+            "Contract Number:",
+            "Contract Number:",
+            "Contract Number:",
+            "Contract Modification Number:  \nAMENDEMENT 15-12-2020 VOSS additional order C4I solution and deliveries 11-12-2020\n10-01-2022 Amendment to the Agreement TCP 187, TCP 192, TCP 193 DMO signed\nApproved TCP's list",
+            "Contract Modification Number:  \nAMENDEMENT 15-12-2020 VOSS additional order C4I solution and deliveries 11-12-2020\n10-01-2022 Amendment to the Agreement TCP 187, TCP 192, TCP 193 DMO signed\nApproved TCP's list"
+          ],
+          [
+            "Remarks or Comments:",
+            "Remarks or Comments:",
+            "Remarks or Comments:",
+            "Remarks or Comments:",
+            "Remarks or Comments:"
+          ],
+          [
+            "Government Quality Assurance Representative Statement of GQA:\n\n\n(the GQAR Statement of GQA above and the GQAR signature below do not mean acceptance on behalf of the Acquirer and/or Delegator of the supplies identified by the Supplier in Part I, do not necessary mean that the individual items have been inspected, nor do they mean that certification has been granted).",
+            "Government Quality Assurance Representative Statement of GQA:\n\n\n(the GQAR Statement of GQA above and the GQAR signature below do not mean acceptance on behalf of the Acquirer and/or Delegator of the supplies identified by the Supplier in Part I, do not necessary mean that the individual items have been inspected, nor do they mean that certification has been granted).",
+            "Government Quality Assurance Representative Statement of GQA:\n\n\n(the GQAR Statement of GQA above and the GQAR signature below do not mean acceptance on behalf of the Acquirer and/or Delegator of the supplies identified by the Supplier in Part I, do not necessary mean that the individual items have been inspected, nor do they mean that certification has been granted).",
+            "Government Quality Assurance Representative Statement of GQA:\n\n\n(the GQAR Statement of GQA above and the GQAR signature below do not mean acceptance on behalf of the Acquirer and/or Delegator of the supplies identified by the Supplier in Part I, do not necessary mean that the individual items have been inspected, nor do they mean that certification has been granted).",
+            "Government Quality Assurance Representative Statement of GQA:\n\n\n(the GQAR Statement of GQA above and the GQAR signature below do not mean acceptance on behalf of the Acquirer and/or Delegator of the supplies identified by the Supplier in Part I, do not necessary mean that the individual items have been inspected, nor do they mean that certification has been granted)."
+          ],
+          [
+            "Date: Date:",
+            "GQAR Information:\n\nName: R. Kompier\n\nPhone Number: +31620415178\n\nE-mail Address:",
+            "GQAR Information:\n\nName: R. Kompier\n\nPhone Number: +31620415178\n\nE-mail Address:",
+            "GQAR Information:\n\nName: R. Kompier\n\nPhone Number: +31620415178\n\nE-mail Address:",
+            "GQAR Signature:"
+          ]
+        ]
+      }
+    ],
+    "metadata": {
+      "author": "SmartVest",
+      "title": "CoC",
+      "created": "2024-10-08 06:49:00",
+      "modified": "2025-04-20 15:10:00"
+    }
+  }
+}
