@@ -237,6 +237,58 @@ def extract_delivery_number(shipment_no: str) -> str:
     return digits[-3:] if len(digits) >= 3 else digits
 
 
+def parse_product_description(raw_description: str) -> dict:
+    """
+    Parse concatenated product description into components.
+
+    Input format: "20580903700; PNR-1000N WPTT; Customer Item 20000646041"
+
+    Returns dict with:
+    - catalog_number: "20580903700"
+    - product_name: "PNR-1000N WPTT"
+    - customer_item: "20000646041"
+    - formatted_description: "20580903700 - PNR-1000N WPTT"
+
+    Args:
+        raw_description: Concatenated product description string
+
+    Returns:
+        Dictionary with parsed components
+    """
+    result = {
+        "catalog_number": "",
+        "product_name": "",
+        "customer_item": "",
+        "formatted_description": raw_description  # Default to original
+    }
+
+    if not raw_description:
+        return result
+
+    # Split by semicolon
+    parts = [p.strip() for p in str(raw_description).split(';')]
+
+    if len(parts) >= 1:
+        result["catalog_number"] = parts[0].strip()
+
+    if len(parts) >= 2:
+        result["product_name"] = parts[1].strip()
+        # Format as "catalog - product_name"
+        result["formatted_description"] = f"{result['catalog_number']} - {result['product_name']}"
+
+    if len(parts) >= 3:
+        # Extract customer item number from "Customer Item 20000646041"
+        customer_part = parts[2].strip()
+        # Remove "Customer Item" prefix if present
+        customer_item_match = re.search(r'(?:Customer\s*Item\s*)?(\d+)', customer_part, re.IGNORECASE)
+        if customer_item_match:
+            result["customer_item"] = customer_item_match.group(1)
+        else:
+            result["customer_item"] = customer_part
+
+    return result
+
+
 def format_shipment_document(shipment_doc: str, packing_slip: str = "") -> str:
     """
     Format shipment document field, ensuring 'Delivery by DSV' is included.
@@ -332,16 +384,8 @@ def flatten_data_for_template(job_data: Dict[str, Any]) -> Dict[str, Any]:
         extract_delivery_number(shipment_no)
     )
 
-    # Extract item fields
-    contract_item = (
-        first_item.get("ContractItem") or
-        first_item.get("contract_item") or
-        pi_data.get("customer_part_no") or
-        template_vars.get("contract_item") or
-        ""
-    )
-
-    product_description = (
+    # Extract raw product description for parsing
+    raw_product_description = (
         first_item.get("ProductDescriptionOrPart") or
         first_item.get("product_description_or_part") or
         first_item.get("product_description") or
@@ -349,6 +393,24 @@ def flatten_data_for_template(job_data: Dict[str, Any]) -> Dict[str, Any]:
         template_vars.get("product_description") or
         ""
     )
+
+    # Parse the product description to extract components
+    # Input: "20580903700; PNR-1000N WPTT; Customer Item 20000646041"
+    # Output: catalog_number, product_name, customer_item, formatted_description
+    parsed_product = parse_product_description(raw_product_description)
+
+    # Field 9 (contract_item): Use customer_item from parsed description, or fallback to other sources
+    contract_item = (
+        parsed_product.get("customer_item") or
+        first_item.get("ContractItem") or
+        first_item.get("contract_item") or
+        pi_data.get("customer_part_no") or
+        template_vars.get("contract_item") or
+        ""
+    )
+
+    # Field 10 (product_description): Use formatted "catalog - product_name" format
+    product_description = parsed_product.get("formatted_description") or raw_product_description
 
     quantity = (
         first_item.get("Quantity") or
