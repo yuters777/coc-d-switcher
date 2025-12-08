@@ -260,17 +260,51 @@ def extract_packing_slip(pdf_path: str) -> Dict[str, Any]:
                 logger.debug(f"Packing Slip PDF text (first 500 chars): {text[:500]}")
 
                 # Extract Ship To address
+                # Note: PDF has Ship To and Sold To in side-by-side columns
+                # pdfplumber may interleave them, so we need to filter out Sold To content
                 ship_to_match = re.search(r'Ship\s+To[:\s]+([\s\S]+?)(?:Sold\s+To|Contract|Our\s+Reference)', text, re.IGNORECASE)
                 if ship_to_match:
                     data['ship_to'] = ship_to_match.group(1).strip()
-                    # Clean up - take first few lines, remove "Sold To:" if it appears
-                    ship_lines = data['ship_to'].split('\n')[:5]
+                    # Clean up - take first few lines
+                    ship_lines = data['ship_to'].split('\n')[:6]
                     cleaned_lines = []
+
+                    # Known "Sold To" content patterns to filter out
+                    sold_to_patterns = [
+                        r'NETHERLANDS\s+MINISTRY',
+                        r'\bCOMMIT\b',
+                        r'Projects?\s+Procurement',
+                        r'Herculeslaan',
+                        r'Utrecht\s+MPC',
+                        r'The\s+Netherlands$',
+                        r'Sold\s+To',
+                    ]
+
                     for line in ship_lines:
                         line = line.strip()
-                        # Skip lines that contain "Sold To" (but keep organization names like "BCD")
-                        if line and not re.search(r'Sold\s+To', line, re.IGNORECASE):
+                        if not line:
+                            continue
+
+                        # Check if line contains Sold To content
+                        is_sold_to = False
+                        for pattern in sold_to_patterns:
+                            if re.search(pattern, line, re.IGNORECASE):
+                                is_sold_to = True
+                                break
+
+                        if is_sold_to:
+                            # Try to extract just the Ship To portion (before Sold To content)
+                            # Split at known Sold To keywords
+                            for pattern in sold_to_patterns:
+                                match = re.search(pattern, line, re.IGNORECASE)
+                                if match:
+                                    left_part = line[:match.start()].strip()
+                                    if left_part and len(left_part) > 2:
+                                        cleaned_lines.append(left_part)
+                                    break
+                        else:
                             cleaned_lines.append(line)
+
                     data['ship_to'] = '\n'.join(cleaned_lines)
                     logger.info(f"Found ship to: {data['ship_to'][:50]}...")
 
