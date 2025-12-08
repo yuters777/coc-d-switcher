@@ -313,6 +313,47 @@ def format_shipment_document(shipment_doc: str, packing_slip: str = "") -> str:
     return "\n".join(parts)
 
 
+def format_multi_item_field(items: list, customer_items: list, field: str) -> str:
+    """
+    Format multi-item fields as newline-separated strings.
+
+    Args:
+        items: List of item dicts from packing slip extraction
+        customer_items: List of customer item numbers
+        field: Which field to format ('contract_item', 'description', 'quantity')
+
+    Returns:
+        Newline-separated string of values
+    """
+    if not items:
+        return ""
+
+    values = []
+
+    if field == 'contract_item':
+        # Use customer_items list if available
+        if customer_items:
+            values = customer_items
+        else:
+            # Fall back to extracting from items (if we had customer info there)
+            for i, item in enumerate(items):
+                values.append(item.get('customer_item', ''))
+
+    elif field == 'description':
+        for item in items:
+            desc = item.get('description', '')
+            if desc:
+                values.append(desc)
+
+    elif field == 'quantity':
+        for item in items:
+            qty = item.get('quantity', '')
+            if qty:
+                values.append(str(qty))
+
+    return "\n".join(values) if values else ""
+
+
 def flatten_data_for_template(job_data: Dict[str, Any]) -> Dict[str, Any]:
     """
     Flatten nested PI/PII data structure to match template variables.
@@ -387,6 +428,11 @@ def flatten_data_for_template(job_data: Dict[str, Any]) -> Dict[str, Any]:
         extract_delivery_number(shipment_no)
     )
 
+    # Check for multi-item packing slip
+    ps_items = pi_data.get("items", [])
+    customer_items = pi_data.get("customer_items", [])
+    is_multi_item = len(ps_items) > 1 or len(customer_items) > 1
+
     # Extract raw product description for parsing
     raw_product_description = (
         first_item.get("ProductDescriptionOrPart") or
@@ -402,26 +448,36 @@ def flatten_data_for_template(job_data: Dict[str, Any]) -> Dict[str, Any]:
     # Output: catalog_number, product_name, customer_item, formatted_description
     parsed_product = parse_product_description(raw_product_description)
 
-    # Field 9 (contract_item): Use customer_item from parsed description, or fallback to other sources
-    contract_item = (
-        parsed_product.get("customer_item") or
-        first_item.get("ContractItem") or
-        first_item.get("contract_item") or
-        pi_data.get("customer_part_no") or
-        template_vars.get("contract_item") or
-        ""
-    )
+    # Field 9 (contract_item): For multi-item, format as newline-separated
+    if is_multi_item and customer_items:
+        contract_item = "\n".join(customer_items)
+    else:
+        contract_item = (
+            parsed_product.get("customer_item") or
+            first_item.get("ContractItem") or
+            first_item.get("contract_item") or
+            pi_data.get("customer_part_no") or
+            template_vars.get("contract_item") or
+            (customer_items[0] if customer_items else "")
+        )
 
-    # Field 10 (product_description): Use formatted "catalog - product_name" format
-    product_description = parsed_product.get("formatted_description") or raw_product_description
+    # Field 10 (product_description): For multi-item, format as newline-separated
+    if is_multi_item and ps_items:
+        product_description = "\n".join([item.get('description', '') for item in ps_items if item.get('description')])
+    else:
+        product_description = parsed_product.get("formatted_description") or raw_product_description
 
-    quantity = (
-        first_item.get("Quantity") or
-        first_item.get("quantity") or
-        pi_data.get("quantity") or
-        template_vars.get("quantity") or
-        ""
-    )
+    # Field 11 (quantity): For multi-item, format as newline-separated
+    if is_multi_item and ps_items:
+        quantity = "\n".join([str(item.get('quantity', '')) for item in ps_items if item.get('quantity')])
+    else:
+        quantity = (
+            first_item.get("Quantity") or
+            first_item.get("quantity") or
+            pi_data.get("quantity") or
+            template_vars.get("quantity") or
+            ""
+        )
 
     # Get shipment document with DSV
     shipment_doc_raw = (
