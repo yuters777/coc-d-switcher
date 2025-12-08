@@ -1,22 +1,13 @@
 {
   "templates": [
     {
-      "id": "dutch-coc-template-v1",
-      "name": "Dutch COC Template",
-      "version": "1.1",
-      "filename": "dutch_coc_template.docx",
-      "path": "templates/dutch_coc_template.docx",
-      "uploaded_at": "2025-12-04T13:20:00.000000",
+      "id": "4b5a96e9-3ab1-41f4-9608-da20117982e2",
+      "name": "Dutch Template COC",
+      "version": "1.2",
+      "filename": "4b5a96e9-3ab1-41f4-9608-da20117982e2_dutch_coc_template.docx",
+      "path": "templates\\4b5a96e9-3ab1-41f4-9608-da20117982e2_dutch_coc_template.docx",
+      "uploaded_at": "2025-12-07T13:27:43.268890",
       "is_default": true
-    },
-    {
-      "id": "original-coc-template",
-      "name": "Original COC Template (Example)",
-      "version": "1.0",
-      "filename": "COC_SV_Del165_20.03.2025.docx",
-      "path": "templates/COC_SV_Del165_20.03.2025.docx",
-      "uploaded_at": "2025-10-20T05:37:51.861954",
-      "is_default": false
     }
   ]
 }

@@ -268,8 +268,8 @@ def extract_packing_slip(pdf_path: str) -> Dict[str, Any]:
                     cleaned_lines = []
                     for line in ship_lines:
                         line = line.strip()
-                        # Skip lines that contain "Sold To" or "BCD"
-                        if line and not re.search(r'Sold\s+To|^BCD\s', line, re.IGNORECASE):
+                        # Skip lines that contain "Sold To" (but keep organization names like "BCD")
+                        if line and not re.search(r'Sold\s+To', line, re.IGNORECASE):
                             cleaned_lines.append(line)
                     data['ship_to'] = '\n'.join(cleaned_lines)
                     logger.info(f"Found ship to: {data['ship_to'][:50]}...")
