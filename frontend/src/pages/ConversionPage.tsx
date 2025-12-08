@@ -748,15 +748,15 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
                         <label className="block text-sm font-medium mb-2">
                           Undelivered Quantity <span className="text-red-500">*</span>
                         </label>
-                        <input
-                          type="text"
+                        <textarea
                           name="undelivered_quantity"
-                          placeholder="e.g., 4196 (of 8115)"
+                          placeholder="Single item: 4196 (of 8115)&#10;&#10;Multiple items (one per line):&#10;813 (of 1472)&#10;95 (of 542)&#10;0 (of 234)"
                           className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                          rows={4}
                           required
                         />
                         <p className="text-xs text-gray-500 mt-1">
-                          Format: remaining quantity (of total ordered)
+                          Format: remaining qty (of total ordered). For multiple items in the Packing Slip, enter each on a new line in the same order as listed.
                         </p>
                       </div>
 
