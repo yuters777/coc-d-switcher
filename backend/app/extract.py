@@ -349,24 +349,59 @@ def extract_packing_slip(pdf_path: str) -> Dict[str, Any]:
                     data['customer_item'] = cust_item_match.group(1)
                     logger.info(f"Found customer item: {data['customer_item']}")
 
-                # Extract Part Number and Description
+                # Extract ALL Customer Items (for multi-item packing slips)
+                all_customer_items = re.findall(r'Customers?\s+Item[:\s]+(\d+)', text, re.IGNORECASE)
+                if all_customer_items:
+                    data['customer_items'] = all_customer_items
+                    logger.info(f"Found {len(all_customer_items)} customer items: {all_customer_items}")
+
+                # Extract ALL Part Numbers, Descriptions, and Quantities
+                # Pattern matches rows like: "110 20580966000 SVC-29 UNIT 463.00 EA"
+                # or "11 20580911000 POWER UNIT 56.00 EA"
+                items = []
+
+                # Pattern for item rows: Dlv (1-3 digits), Part No (11 digits), Description, Qty, EA
+                item_pattern = r'(\d{1,3})\s+(\d{11})\s+([\w\s\-]+?)\s+(\d+\.?\d*)\s*EA'
+                item_matches = re.findall(item_pattern, text, re.IGNORECASE)
+
+                for match in item_matches:
+                    dlv, part_no, description, qty = match
+                    items.append({
+                        'dlv': dlv.strip(),
+                        'part_no': part_no.strip(),
+                        'description': description.strip(),
+                        'quantity': int(float(qty))
+                    })
+
+                if items:
+                    data['items'] = items
+                    data['item_count'] = len(items)
+                    logger.info(f"Found {len(items)} items in packing slip")
+
+                    # Also set single values for backward compatibility (first item)
+                    data['part_no'] = items[0]['part_no']
+                    data['description'] = items[0]['description']
+                    data['quantity'] = items[0]['quantity']
+
+                # Extract Part Number and Description (fallback for single item)
                 # Pattern: "20580903700 PNR-1000N WPTT 100.00 EA"
-                part_patterns = [
-                    r'(\d{11})\s+([\w\s-]+?)\s+(\d+\.\d+)\s+EA',
-                    r'Part\s+No[:\s]+(\d{11}).*?Description[:\s]+([\w\s-]+)',
-                ]
-                for pattern in part_patterns:
-                    part_match = re.search(pattern, text, re.DOTALL)
-                    if part_match:
-                        data['part_no'] = part_match.group(1)
-                        data['description'] = part_match.group(2).strip()
-                        if len(part_match.groups()) >= 3:
-                            try:
-                                data['quantity'] = int(float(part_match.group(3)))
-                            except:
-                                pass
-                        logger.info(f"Found part: {data['part_no']} - {data.get('description')}")
-                        break
+                if 'part_no' not in data:
+                    part_patterns = [
+                        r'(\d{11})\s+([\w\s-]+?)\s+(\d+\.\d+)\s+EA',
+                        r'Part\s+No[:\s]+(\d{11}).*?Description[:\s]+([\w\s-]+)',
+                    ]
+                    for pattern in part_patterns:
+                        part_match = re.search(pattern, text, re.DOTALL)
+                        if part_match:
+                            data['part_no'] = part_match.group(1)
+                            data['description'] = part_match.group(2).strip()
+                            if len(part_match.groups()) >= 3:
+                                try:
+                                    data['quantity'] = int(float(part_match.group(3)))
+                                except:
+                                    pass
+                            logger.info(f"Found part: {data['part_no']} - {data.get('description')}")
+                            break
 
                 # Extract Quantity if not found above
                 if 'quantity' not in data:
@@ -443,10 +478,18 @@ def merge_extracted_data(coc_data: Dict, ps_data: Dict) -> Dict[str, Any]:
     # QA Signer - from COC
     merged['qa_signer'] = coc_data.get('qa_signer') or ''
 
+    # Multi-item support - pass through items list from Packing Slip
+    if ps_data.get('items'):
+        merged['items'] = ps_data['items']
+        merged['item_count'] = ps_data.get('item_count', len(ps_data['items']))
+    if ps_data.get('customer_items'):
+        merged['customer_items'] = ps_data['customer_items']
+
     logger.info(f"Merged data - contract: {merged.get('contract_number')}, "
                 f"shipment: {merged.get('shipment_no')}, "
                 f"quantity: {merged.get('quantity')}, "
-                f"serials: {merged.get('serial_count')}")
+                f"serials: {merged.get('serial_count')}, "
+                f"items: {merged.get('item_count', 1)}")
 
     return merged
 
