@@ -113,23 +113,22 @@ def normalize_date_to_ddmmyyyy(date_str: str) -> str:
     return date_str
 
 
-def calculate_supplier_serial_no(shipment_no: str, date_str: str) -> str:
+def calculate_supplier_serial_no(partial_delivery_number: str, date_str: str) -> str:
     """
     Calculate the Supplier Serial Number for the COC document.
 
     Format: COC_SV_Del{XXX}_{DD.MM.YYYY}
-    Where XXX is the last 3 digits of the shipment number.
+    Where XXX is the partial delivery number (from manual input).
 
     Args:
-        shipment_no: Shipment number (e.g., "6SH264587")
+        partial_delivery_number: Partial delivery number (e.g., "165")
         date_str: Date string to be normalized
 
     Returns:
-        Formatted supplier serial number (e.g., "COC_SV_Del587_04.11.2025")
+        Formatted supplier serial number (e.g., "COC_SV_Del165_20.03.2025")
     """
-    # Extract last 3 digits from shipment number
-    digits = re.sub(r'[^0-9]', '', str(shipment_no))
-    del_number = digits[-3:] if len(digits) >= 3 else digits.zfill(3)
+    # Use partial delivery number directly (pad with zeros if needed)
+    del_number = str(partial_delivery_number).strip() if partial_delivery_number else "000"
 
     # Normalize the date
     normalized_date = normalize_date_to_ddmmyyyy(date_str)
@@ -340,6 +339,9 @@ def flatten_data_for_template(job_data: Dict[str, Any]) -> Dict[str, Any]:
     # Also check for template_vars key (from extraction)
     template_vars = job_data.get("template_vars", {})
 
+    # Get manual_data (contains partial_delivery_number from user input)
+    manual_data = job_data.get("manual_data", {})
+
     # Extract item data (use first item if available)
     items = pi_data.get("Items", pi_data.get("items", []))
     first_item = items[0] if items else {}
@@ -376,11 +378,12 @@ def flatten_data_for_template(job_data: Dict[str, Any]) -> Dict[str, Any]:
         ""
     )
 
-    # Extract partial delivery number
+    # Extract partial delivery number (prioritize manual_data from user input)
     partial_delivery = (
+        manual_data.get("partial_delivery_number") or
+        template_vars.get("partial_delivery_number") or
         pi_data.get("PartialDeliveryNumber") or
         pi_data.get("partial_delivery_number") or
-        template_vars.get("partial_delivery_number") or
         extract_delivery_number(shipment_no)
     )
 
@@ -428,18 +431,22 @@ def flatten_data_for_template(job_data: Dict[str, Any]) -> Dict[str, Any]:
         shipment_no
     )
 
+    # Undelivered quantity (prioritize manual_data from user input)
     undelivered_qty = (
+        manual_data.get("undelivered_quantity") or
+        template_vars.get("undelivered_quantity") or
         first_item.get("UndeliveredQuantity") or
         first_item.get("undelivered_quantity") or
         pi_data.get("undelivered_quantity") or
-        template_vars.get("undelivered_quantity") or
         ""
     )
 
+    # Remarks (prioritize manual_data from user input)
     remarks = (
+        manual_data.get("remarks") or
+        template_vars.get("remarks") or
         pi_data.get("Remarks") or
         pi_data.get("remarks") or
-        template_vars.get("remarks") or
         ""
     )
 
@@ -452,7 +459,8 @@ def flatten_data_for_template(job_data: Dict[str, Any]) -> Dict[str, Any]:
     # Build flat data dictionary
     flat_data = {
         # Page 1 - Core fields
-        "supplier_serial_no": calculate_supplier_serial_no(shipment_no, date_str),
+        # supplier_serial_no uses partial_delivery_number (from manual input) + date
+        "supplier_serial_no": calculate_supplier_serial_no(partial_delivery, date_str),
         "contract_number": str(contract_number),
         "contract_modification": (
             pi_data.get("ContractModification") or
