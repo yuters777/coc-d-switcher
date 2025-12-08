@@ -705,11 +705,17 @@ def render_docx(conv_json: Dict[str, Any], job_id: str, template_path: Optional[
     # Prepare context with defaults
     context = prepare_context(flat_data)
 
+    # Get supplier_serial_no for filename (same as field 1)
+    supplier_serial_no = context.get("supplier_serial_no", f"COC_SV_Del000_{datetime.now().strftime('%d.%m.%Y')}")
+
+    # Add file_name to context for template footer
+    context["file_name"] = f"{supplier_serial_no}.docx"
+
     logger.info(f"Rendering template: {template_file}")
     logger.debug(f"Context keys: {list(context.keys())}")
 
-    # Output path (cross-platform)
-    out_path = Path(tempfile.gettempdir()) / f"coc-{job_id}.docx"
+    # Output path uses supplier_serial_no as filename (cross-platform)
+    out_path = Path(tempfile.gettempdir()) / f"{supplier_serial_no}.docx"
 
     try:
         # Load and render template
