@@ -226,7 +226,7 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
   const handleManualDataSubmit = async (manualData: {
     partial_delivery_number: string;
     undelivered_quantity: string;
-    sw_version: string;
+    remarks: string;
   }) => {
     if (!jobState.jobId) {
       console.error('No job found');
@@ -561,7 +561,9 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
                   <div className="text-xs text-gray-600 space-y-1">
                     <p><strong>Partial Delivery #:</strong> {jobState.manualData.partial_delivery_number}</p>
                     <p><strong>Undelivered Quantity:</strong> {jobState.manualData.undelivered_quantity}</p>
-                    <p><strong>Software Version:</strong> {jobState.manualData.sw_version}</p>
+                    {jobState.manualData.remarks && (
+                      <p><strong>Remarks:</strong> {jobState.manualData.remarks}</p>
+                    )}
                     {jobState.manualData.contract_number && (
                       <p><strong>Contract Number:</strong> {jobState.manualData.contract_number}</p>
                     )}
@@ -607,7 +609,7 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
                   const data: any = {
                     partial_delivery_number: formData.get('partial_delivery_number') as string,
                     undelivered_quantity: formData.get('undelivered_quantity') as string,
-                    sw_version: formData.get('sw_version') as string
+                    remarks: formData.get('remarks') as string || ''
                   };
 
                   // Check for optional extracted data fields
@@ -760,17 +762,16 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
 
                       <div>
                         <label className="block text-sm font-medium mb-2">
-                          Software Version <span className="text-red-500">*</span>
+                          Remarks or Comments
                         </label>
-                        <input
-                          type="text"
-                          name="sw_version"
-                          placeholder="e.g., 2.2.15.45"
+                        <textarea
+                          name="remarks"
+                          placeholder="Enter any additional information or comments..."
                           className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                          required
+                          rows={3}
                         />
                         <p className="text-xs text-gray-500 mt-1">
-                          The software version for this product
+                          Additional information or comments for this shipment (optional)
                         </p>
                       </div>
                     </div>
