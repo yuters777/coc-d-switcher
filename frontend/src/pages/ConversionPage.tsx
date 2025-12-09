@@ -204,9 +204,9 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
       if (response.ok) {
         const data = await response.json();
         console.log('Upload successful:', data);
-        // Automatically parse after upload
+        // Automatically parse after upload (pass currentJobId since state may not be updated yet)
         setLoadingMessage('Extracting data from PDFs...');
-        await handleParse();
+        await handleParse(currentJobId);
       } else {
         const errorText = await response.text();
         console.error('Upload failed:', response.status, errorText);
@@ -222,15 +222,16 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
     }
   };
 
-  const handleParse = async () => {
-    if (!jobState.jobId) {
+  const handleParse = async (overrideJobId?: string) => {
+    const jobId = overrideJobId || jobState.jobId;
+    if (!jobId) {
       console.error('No job found');
       return;
     }
 
     try {
-      console.log('Parsing documents for job:', jobState.jobId);
-      const response = await fetch(`${API_BASE}/api/jobs/${jobState.jobId}/parse`, {
+      console.log('Parsing documents for job:', jobId);
+      const response = await fetch(`${API_BASE}/api/jobs/${jobId}/parse`, {
         method: 'POST'
       });
 
