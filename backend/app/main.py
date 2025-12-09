@@ -185,15 +185,16 @@ async def render_job(job_id: str):
         conv_json['template_vars'].update(job['manual_data'])
         conv_json['manual_data'] = job['manual_data']
 
-    # Render DOCX
-    docx_path = render_docx(conv_json, job_id)
+    # Get the default template BEFORE rendering
+    default_template = template_manager.get_default_template()
+    template_path = default_template.get('path') if default_template else None
+    template_info = default_template if default_template else {"name": "Default", "version": "1.0"}
+
+    # Render DOCX using the default template
+    docx_path = render_docx(conv_json, job_id, template_path=template_path)
 
     # Convert to PDF
     pdf_path = convert_to_pdf(docx_path)
-
-    # Get template info
-    default_template = template_manager.get_default_template()
-    template_info = default_template if default_template else {"name": "Default", "version": "1.0"}
 
     # Update job with rendered file paths
     jobs_db[job_id]['rendered_files'] = {

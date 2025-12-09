@@ -7,6 +7,15 @@
       "filename": "e6a9a173-8fcc-4886-a04c-6a4025029d36_dutch_coc_template_ZIV.docx",
       "path": "templates\\e6a9a173-8fcc-4886-a04c-6a4025029d36_dutch_coc_template_ZIV.docx",
       "uploaded_at": "2025-12-09T07:54:02.265311",
+      "is_default": false
+    },
+    {
+      "id": "ab7df686-3469-4c4a-ad90-a9e4587bc97e",
+      "name": "ZIV DICHTER COC",
+      "version": "1.5",
+      "filename": "ab7df686-3469-4c4a-ad90-a9e4587bc97e_ZIV_dutch_coc_template.docx",
+      "path": "templates\\ab7df686-3469-4c4a-ad90-a9e4587bc97e_ZIV_dutch_coc_template.docx",
+      "uploaded_at": "2025-12-09T08:26:41.504388",
       "is_default": true
     }
   ]
