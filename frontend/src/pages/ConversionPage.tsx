@@ -240,10 +240,12 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
       if (response.ok) {
         const data = await response.json();
         console.log('Parsed data:', data);
-        setJobState({
-          ...jobState,
+        // Use functional update to preserve jobId (avoid stale closure)
+        setJobState(prev => ({
+          ...prev,
+          jobId: jobId,  // Ensure jobId is set
           extractedData: data.extracted_data
-        });
+        }));
         // Auto-progress to step 2 (manual data entry)
         setCurrentStep(2);
         setLoading(false);
