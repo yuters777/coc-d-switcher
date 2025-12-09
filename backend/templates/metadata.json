@@ -1,12 +1,12 @@
 {
   "templates": [
     {
-      "id": "4b5a96e9-3ab1-41f4-9608-da20117982e2",
-      "name": "Dutch Template COC",
-      "version": "1.2",
-      "filename": "4b5a96e9-3ab1-41f4-9608-da20117982e2_dutch_coc_template.docx",
-      "path": "templates\\4b5a96e9-3ab1-41f4-9608-da20117982e2_dutch_coc_template.docx",
-      "uploaded_at": "2025-12-07T13:27:43.268890",
+      "id": "e6a9a173-8fcc-4886-a04c-6a4025029d36",
+      "name": "Dutch COC template - updated",
+      "version": "1.4",
+      "filename": "e6a9a173-8fcc-4886-a04c-6a4025029d36_dutch_coc_template_ZIV.docx",
+      "path": "templates\\e6a9a173-8fcc-4886-a04c-6a4025029d36_dutch_coc_template_ZIV.docx",
+      "uploaded_at": "2025-12-09T07:54:02.265311",
       "is_default": true
     }
   ]
