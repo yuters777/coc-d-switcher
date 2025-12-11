@@ -726,9 +726,39 @@ def render_docx(conv_json: Dict[str, Any], job_id: str, template_path: Optional[
     return out_path
 
 
+def validate_safe_path(file_path: Path, allowed_parent: Path) -> bool:
+    """
+    Validate that a file path is within an allowed directory.
+
+    This prevents command injection by ensuring paths passed to
+    subprocess commands are within expected directories.
+
+    Args:
+        file_path: Path to validate
+        allowed_parent: The allowed parent directory
+
+    Returns:
+        True if path is safe, False otherwise
+    """
+    try:
+        # Resolve both paths to handle symlinks and relative paths
+        resolved_file = file_path.resolve()
+        resolved_parent = allowed_parent.resolve()
+
+        # Check if the file is within the allowed directory
+        return str(resolved_file).startswith(str(resolved_parent))
+    except Exception as e:
+        logger.warning(f"SECURITY: Path validation error: {e}")
+        return False
+
+
 def convert_to_pdf(docx_path: Path) -> Path:
     """
     Convert DOCX to PDF using LibreOffice headless.
+
+    Security measures:
+    - Validates docx_path is within temp directory (prevents command injection)
+    - Uses list-based subprocess call (no shell=True)
 
     Args:
         docx_path: Path to the DOCX file
@@ -738,8 +768,19 @@ def convert_to_pdf(docx_path: Path) -> Path:
     """
     pdf_path = docx_path.with_suffix(".pdf")
 
+    # SECURITY: Validate that docx_path is within the temp directory
+    # This prevents potential command injection if docx_path were ever
+    # derived from user input in the future
+    temp_dir = Path(tempfile.gettempdir())
+    if not validate_safe_path(docx_path, temp_dir):
+        logger.error(
+            f"SECURITY: Attempted PDF conversion with path outside temp directory: {docx_path}"
+        )
+        raise ValueError(f"Invalid file path: must be within temp directory")
+
     try:
         # Try LibreOffice conversion
+        # SECURITY: Using list form (not shell=True) prevents shell injection
         result = subprocess.run([
             'libreoffice', '--headless', '--convert-to', 'pdf',
             '--outdir', str(docx_path.parent),
