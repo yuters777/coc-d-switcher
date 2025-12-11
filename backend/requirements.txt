@@ -1,15 +1,9 @@
-# Core dependencies
 fastapi==0.104.1
 uvicorn==0.24.0
 pydantic==2.5.0
 pdfplumber==0.10.3
 python-multipart==0.0.6
-docxtpl==0.16.7
-
-# Testing dependencies
 pytest==7.4.3
-httpx==0.25.2
-
-# Optional - for scripts/pdf_to_template.py
-python-docx==0.8.11
-pdf2docx==0.5.8
+# SECURITY: Upgraded from 0.8.11 to ensure XXE protections are up to date
+python-docx>=1.1.0
+docxtpl==0.16.7

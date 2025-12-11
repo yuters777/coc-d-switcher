@@ -1,0 +1,36 @@
+TEMPLATE VARIABLES
+================================================================================
+
+Variables:
+  { 28A0092B-C50C-407E-A947-70E740481C1C }
+  { 546B8E71-0529-49F8-8717-C5C8C95B7D1F }
+  { D5CDD505-2E9C-101B-9397-08002B2CF9AE }
+  { E9ED3BE0-EE0C-4D7C-ADE1-ABDC24868F20 }
+  { acquirer }
+  { contract_item }
+  { contract_number }
+  { date }
+  { delivery_address }
+  { final_delivery_number }
+  { partial_delivery_number }
+  { product_description }
+  { quantity }
+  { remarks }
+  { supplier_serial_no }
+  { undelivered_quantity }
+  { { acquirer }
+  { { contract_item }
+  { { contract_number }
+  { { date }
+  { { delivery_address }
+  { { final_delivery_number }
+  { { partial_delivery_number }
+  { { product_description }
+  { { quantity }
+  { { remarks }
+  { { supplier_serial_no }
+  { { undelivered_quantity }
+
+Loops:
+
+Conditionals:
