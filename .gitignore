@@ -31,3 +31,7 @@ desktop.ini
 .env
 
 .git_bad/
+
+# Offline deployment packages
+backend/offline_packages/
+!-Dependances/*.zip
