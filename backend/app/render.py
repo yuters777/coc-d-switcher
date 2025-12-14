@@ -113,23 +113,22 @@ def normalize_date_to_ddmmyyyy(date_str: str) -> str:
     return date_str
 
 
-def calculate_supplier_serial_no(shipment_no: str, date_str: str) -> str:
+def calculate_supplier_serial_no(partial_delivery_number: str, date_str: str) -> str:
     """
     Calculate the Supplier Serial Number for the COC document.
 
     Format: COC_SV_Del{XXX}_{DD.MM.YYYY}
-    Where XXX is the last 3 digits of the shipment number.
+    Where XXX is the partial delivery number (from manual input).
 
     Args:
-        shipment_no: Shipment number (e.g., "6SH264587")
+        partial_delivery_number: Partial delivery number (e.g., "165")
         date_str: Date string to be normalized
 
     Returns:
-        Formatted supplier serial number (e.g., "COC_SV_Del587_04.11.2025")
+        Formatted supplier serial number (e.g., "COC_SV_Del165_20.03.2025")
     """
-    # Extract last 3 digits from shipment number
-    digits = re.sub(r'[^0-9]', '', str(shipment_no))
-    del_number = digits[-3:] if len(digits) >= 3 else digits.zfill(3)
+    # Use partial delivery number directly (pad with zeros if needed)
+    del_number = str(partial_delivery_number).strip() if partial_delivery_number else "000"
 
     # Normalize the date
     normalized_date = normalize_date_to_ddmmyyyy(date_str)
@@ -314,6 +313,47 @@ def format_shipment_document(shipment_doc: str, packing_slip: str = "") -> str:
     return "\n".join(parts)
 
 
+def format_multi_item_field(items: list, customer_items: list, field: str) -> str:
+    """
+    Format multi-item fields as newline-separated strings.
+
+    Args:
+        items: List of item dicts from packing slip extraction
+        customer_items: List of customer item numbers
+        field: Which field to format ('contract_item', 'description', 'quantity')
+
+    Returns:
+        Newline-separated string of values
+    """
+    if not items:
+        return ""
+
+    values = []
+
+    if field == 'contract_item':
+        # Use customer_items list if available
+        if customer_items:
+            values = customer_items
+        else:
+            # Fall back to extracting from items (if we had customer info there)
+            for i, item in enumerate(items):
+                values.append(item.get('customer_item', ''))
+
+    elif field == 'description':
+        for item in items:
+            desc = item.get('description', '')
+            if desc:
+                values.append(desc)
+
+    elif field == 'quantity':
+        for item in items:
+            qty = item.get('quantity', '')
+            if qty:
+                values.append(str(qty))
+
+    return "\n".join(values) if values else ""
+
+
 def flatten_data_for_template(job_data: Dict[str, Any]) -> Dict[str, Any]:
     """
     Flatten nested PI/PII data structure to match template variables.
@@ -339,6 +379,9 @@ def flatten_data_for_template(job_data: Dict[str, Any]) -> Dict[str, Any]:
 
     # Also check for template_vars key (from extraction)
     template_vars = job_data.get("template_vars", {})
+
+    # Get manual_data (contains partial_delivery_number from user input)
+    manual_data = job_data.get("manual_data", {})
 
     # Extract item data (use first item if available)
     items = pi_data.get("Items", pi_data.get("items", []))
@@ -376,13 +419,19 @@ def flatten_data_for_template(job_data: Dict[str, Any]) -> Dict[str, Any]:
         ""
     )
 
-    # Extract partial delivery number
+    # Extract partial delivery number (prioritize manual_data from user input)
     partial_delivery = (
+        manual_data.get("partial_delivery_number") or
+        template_vars.get("partial_delivery_number") or
         pi_data.get("PartialDeliveryNumber") or
         pi_data.get("partial_delivery_number") or
-        template_vars.get("partial_delivery_number") or
         extract_delivery_number(shipment_no)
     )
+
+    # Check for multi-item packing slip
+    ps_items = pi_data.get("items", [])
+    customer_items = pi_data.get("customer_items", [])
+    is_multi_item = len(ps_items) > 1 or len(customer_items) > 1
 
     # Extract raw product description for parsing
     raw_product_description = (
@@ -399,26 +448,36 @@ def flatten_data_for_template(job_data: Dict[str, Any]) -> Dict[str, Any]:
     # Output: catalog_number, product_name, customer_item, formatted_description
     parsed_product = parse_product_description(raw_product_description)
 
-    # Field 9 (contract_item): Use customer_item from parsed description, or fallback to other sources
-    contract_item = (
-        parsed_product.get("customer_item") or
-        first_item.get("ContractItem") or
-        first_item.get("contract_item") or
-        pi_data.get("customer_part_no") or
-        template_vars.get("contract_item") or
-        ""
-    )
+    # Field 9 (contract_item): For multi-item, format as newline-separated
+    if is_multi_item and customer_items:
+        contract_item = "\n".join(customer_items)
+    else:
+        contract_item = (
+            parsed_product.get("customer_item") or
+            first_item.get("ContractItem") or
+            first_item.get("contract_item") or
+            pi_data.get("customer_part_no") or
+            template_vars.get("contract_item") or
+            (customer_items[0] if customer_items else "")
+        )
 
-    # Field 10 (product_description): Use formatted "catalog - product_name" format
-    product_description = parsed_product.get("formatted_description") or raw_product_description
+    # Field 10 (product_description): For multi-item, format as newline-separated
+    if is_multi_item and ps_items:
+        product_description = "\n".join([item.get('description', '') for item in ps_items if item.get('description')])
+    else:
+        product_description = parsed_product.get("formatted_description") or raw_product_description
 
-    quantity = (
-        first_item.get("Quantity") or
-        first_item.get("quantity") or
-        pi_data.get("quantity") or
-        template_vars.get("quantity") or
-        ""
-    )
+    # Field 11 (quantity): For multi-item, format as newline-separated
+    if is_multi_item and ps_items:
+        quantity = "\n".join([str(item.get('quantity', '')) for item in ps_items if item.get('quantity')])
+    else:
+        quantity = (
+            first_item.get("Quantity") or
+            first_item.get("quantity") or
+            pi_data.get("quantity") or
+            template_vars.get("quantity") or
+            ""
+        )
 
     # Get shipment document with DSV
     shipment_doc_raw = (
@@ -428,18 +487,22 @@ def flatten_data_for_template(job_data: Dict[str, Any]) -> Dict[str, Any]:
         shipment_no
     )
 
+    # Undelivered quantity (prioritize manual_data from user input)
     undelivered_qty = (
+        manual_data.get("undelivered_quantity") or
+        template_vars.get("undelivered_quantity") or
         first_item.get("UndeliveredQuantity") or
         first_item.get("undelivered_quantity") or
         pi_data.get("undelivered_quantity") or
-        template_vars.get("undelivered_quantity") or
         ""
     )
 
+    # Remarks (prioritize manual_data from user input)
     remarks = (
+        manual_data.get("remarks") or
+        template_vars.get("remarks") or
         pi_data.get("Remarks") or
         pi_data.get("remarks") or
-        template_vars.get("remarks") or
         ""
     )
 
@@ -452,7 +515,8 @@ def flatten_data_for_template(job_data: Dict[str, Any]) -> Dict[str, Any]:
     # Build flat data dictionary
     flat_data = {
         # Page 1 - Core fields
-        "supplier_serial_no": calculate_supplier_serial_no(shipment_no, date_str),
+        # supplier_serial_no uses partial_delivery_number (from manual input) + date
+        "supplier_serial_no": calculate_supplier_serial_no(partial_delivery, date_str),
         "contract_number": str(contract_number),
         "contract_modification": (
             pi_data.get("ContractModification") or
@@ -705,11 +769,17 @@ def render_docx(conv_json: Dict[str, Any], job_id: str, template_path: Optional[
     # Prepare context with defaults
     context = prepare_context(flat_data)
 
+    # Get supplier_serial_no for filename (same as field 1)
+    supplier_serial_no = context.get("supplier_serial_no", f"COC_SV_Del000_{datetime.now().strftime('%d.%m.%Y')}")
+
+    # Add file_name to context for template footer
+    context["file_name"] = f"{supplier_serial_no}.docx"
+
     logger.info(f"Rendering template: {template_file}")
     logger.debug(f"Context keys: {list(context.keys())}")
 
-    # Output path (cross-platform)
-    out_path = Path(tempfile.gettempdir()) / f"coc-{job_id}.docx"
+    # Output path uses supplier_serial_no as filename (cross-platform)
+    out_path = Path(tempfile.gettempdir()) / f"{supplier_serial_no}.docx"
 
     try:
         # Load and render template
@@ -726,9 +796,39 @@ def render_docx(conv_json: Dict[str, Any], job_id: str, template_path: Optional[
     return out_path
 
 
+def validate_safe_path(file_path: Path, allowed_parent: Path) -> bool:
+    """
+    Validate that a file path is within an allowed directory.
+
+    This prevents command injection by ensuring paths passed to
+    subprocess commands are within expected directories.
+
+    Args:
+        file_path: Path to validate
+        allowed_parent: The allowed parent directory
+
+    Returns:
+        True if path is safe, False otherwise
+    """
+    try:
+        # Resolve both paths to handle symlinks and relative paths
+        resolved_file = file_path.resolve()
+        resolved_parent = allowed_parent.resolve()
+
+        # Check if the file is within the allowed directory
+        return str(resolved_file).startswith(str(resolved_parent))
+    except Exception as e:
+        logger.warning(f"SECURITY: Path validation error: {e}")
+        return False
+
+
 def convert_to_pdf(docx_path: Path) -> Path:
     """
     Convert DOCX to PDF using LibreOffice headless.
+
+    Security measures:
+    - Validates docx_path is within temp directory (prevents command injection)
+    - Uses list-based subprocess call (no shell=True)
 
     Args:
         docx_path: Path to the DOCX file
@@ -738,8 +838,19 @@ def convert_to_pdf(docx_path: Path) -> Path:
     """
     pdf_path = docx_path.with_suffix(".pdf")
 
+    # SECURITY: Validate that docx_path is within the temp directory
+    # This prevents potential command injection if docx_path were ever
+    # derived from user input in the future
+    temp_dir = Path(tempfile.gettempdir())
+    if not validate_safe_path(docx_path, temp_dir):
+        logger.error(
+            f"SECURITY: Attempted PDF conversion with path outside temp directory: {docx_path}"
+        )
+        raise ValueError(f"Invalid file path: must be within temp directory")
+
     try:
         # Try LibreOffice conversion
+        # SECURITY: Using list form (not shell=True) prevents shell injection
         result = subprocess.run([
             'libreoffice', '--headless', '--convert-to', 'pdf',
             '--outdir', str(docx_path.parent),

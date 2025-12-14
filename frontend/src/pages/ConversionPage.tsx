@@ -128,12 +128,6 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
   const handleUploadFiles = async () => {
     console.log('handleUploadFiles called', { jobId: jobState.jobId, files: jobState.files });
 
-    if (!jobState.jobId) {
-      console.log('No job ID, creating job first...');
-      await handleCreateJob();
-      return;
-    }
-
     // Packing slip is required, COC is optional
     if (!jobState.files?.packing) {
       console.log('No packing slip file selected');
@@ -142,6 +136,49 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
     }
 
     setLoading(true);
+    setLoadingMessage('Creating job...');
+
+    let currentJobId = jobState.jobId;
+
+    // Auto-create job if not exists
+    if (!currentJobId) {
+      try {
+        // Generate auto name from packing slip filename
+        const packingFileName = jobState.files.packing.name.replace('.pdf', '').replace('.PDF', '');
+        const autoJobName = `COC-${packingFileName}`;
+
+        console.log('Auto-creating job:', autoJobName);
+        const response = await fetch(`${API_BASE}/api/jobs`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: autoJobName,
+            submitted_by: 'Auto'
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          currentJobId = data.job_id;
+          setJobState(prev => ({ ...prev, jobId: currentJobId, name: autoJobName }));
+          console.log('Job auto-created:', currentJobId);
+        } else {
+          const errorText = await response.text();
+          console.error('Failed to auto-create job:', errorText);
+          alert('Failed to create job. Please try again.');
+          setLoading(false);
+          setLoadingMessage('');
+          return;
+        }
+      } catch (error) {
+        console.error('Error auto-creating job:', error);
+        alert('Failed to create job. Please check your connection.');
+        setLoading(false);
+        setLoadingMessage('');
+        return;
+      }
+    }
+
     setLoadingMessage('Uploading files...');
     const formData = new FormData();
 
@@ -156,8 +193,8 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
     console.log('Added packing slip to form:', jobState.files.packing.name);
 
     try {
-      console.log('Sending upload request to:', `${API_BASE}/api/jobs/${jobState.jobId}/files`);
-      const response = await fetch(`${API_BASE}/api/jobs/${jobState.jobId}/files`, {
+      console.log('Sending upload request to:', `${API_BASE}/api/jobs/${currentJobId}/files`);
+      const response = await fetch(`${API_BASE}/api/jobs/${currentJobId}/files`, {
         method: 'POST',
         body: formData
       });
@@ -167,9 +204,9 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
       if (response.ok) {
         const data = await response.json();
         console.log('Upload successful:', data);
-        // Automatically parse after upload
+        // Automatically parse after upload (pass currentJobId since state may not be updated yet)
         setLoadingMessage('Extracting data from PDFs...');
-        await handleParse();
+        await handleParse(currentJobId);
       } else {
         const errorText = await response.text();
         console.error('Upload failed:', response.status, errorText);
@@ -185,15 +222,16 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
     }
   };
 
-  const handleParse = async () => {
-    if (!jobState.jobId) {
+  const handleParse = async (overrideJobId?: string) => {
+    const jobId = overrideJobId || jobState.jobId;
+    if (!jobId) {
       console.error('No job found');
       return;
     }
 
     try {
-      console.log('Parsing documents for job:', jobState.jobId);
-      const response = await fetch(`${API_BASE}/api/jobs/${jobState.jobId}/parse`, {
+      console.log('Parsing documents for job:', jobId);
+      const response = await fetch(`${API_BASE}/api/jobs/${jobId}/parse`, {
         method: 'POST'
       });
 
@@ -202,10 +240,12 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
       if (response.ok) {
         const data = await response.json();
         console.log('Parsed data:', data);
-        setJobState({
-          ...jobState,
+        // Use functional update to preserve jobId (avoid stale closure)
+        setJobState(prev => ({
+          ...prev,
+          jobId: jobId,  // Ensure jobId is set
           extractedData: data.extracted_data
-        });
+        }));
         // Auto-progress to step 2 (manual data entry)
         setCurrentStep(2);
         setLoading(false);
@@ -226,7 +266,7 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
   const handleManualDataSubmit = async (manualData: {
     partial_delivery_number: string;
     undelivered_quantity: string;
-    sw_version: string;
+    remarks: string;
   }) => {
     if (!jobState.jobId) {
       console.error('No job found');
@@ -442,110 +482,49 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
       case 1:
         return (
           <div className="space-y-6">
-            <h3 className="text-xl font-semibold">Step 1: Create Job & Upload Files</h3>
+            <h3 className="text-xl font-semibold">Step 1: Upload Files</h3>
 
-            {!jobState.jobId ? (
-              <div className="bg-white rounded-lg shadow p-6 space-y-4">
-                <h4 className="font-semibold text-lg mb-2">Create New Job</h4>
-                <div className="p-3 bg-blue-50 border border-blue-200 rounded text-sm text-blue-800 mb-4">
-                  <p className="font-medium mb-1">ℹ️ About these fields:</p>
-                  <ul className="text-xs space-y-1 ml-4 list-disc">
-                    <li><strong>Job Name:</strong> Used for job identification and displayed in the download summary</li>
-                    <li><strong>Your Name:</strong> Tracks who created this job (stored in job record)</li>
-                  </ul>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Job Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={jobState.name}
-                    onChange={(e) => setJobState({ ...jobState, name: e.target.value })}
-                    placeholder="e.g., Shipment 6SH264587 or Contract 697.12.5011.01"
-                    className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Identifier for this conversion job
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Your Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    list="previous-names"
-                    value={jobState.submittedBy}
-                    onChange={(e) => setJobState({ ...jobState, submittedBy: e.target.value })}
-                    placeholder="e.g., John Doe"
-                    className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500"
-                    autoComplete="off"
-                  />
-                  <datalist id="previous-names">
-                    {previousNames.map((name, index) => (
-                      <option key={index} value={name} />
-                    ))}
-                  </datalist>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {previousNames.length > 0
-                      ? "Select from previously used names or type a new one"
-                      : "Your name will be saved for future jobs"}
-                  </p>
-                </div>
-                <button
-                  onClick={handleCreateJob}
-                  disabled={loading}
-                  className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:bg-gray-400 font-medium"
-                >
-                  {loading ? 'Creating...' : 'Create Job'}
-                </button>
+            <div className="bg-white rounded-lg shadow p-6 space-y-4">
+              <h4 className="font-semibold">Upload Documents</h4>
+              <p className="text-sm text-gray-600">
+                Upload the Packing Slip PDF (required) and optionally the Company COC PDF to extract data.
+              </p>
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Company COC PDF <span className="text-gray-500 font-normal">(Optional)</span>
+                </label>
+                <input
+                  type="file"
+                  accept=".pdf"
+                  onChange={(e) => e.target.files && handleFileSelect('coc', e.target.files[0])}
+                  className="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-100 file:text-blue-700"
+                />
+                {jobState.files?.coc && (
+                  <p className="text-xs text-green-600 mt-1">✓ {jobState.files.coc.name}</p>
+                )}
               </div>
-            ) : (
-              <div className="bg-white rounded-lg shadow p-6 space-y-4">
-                <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded">
-                  <p className="text-sm text-green-800">✓ Job created: {jobState.name}</p>
-                  <p className="text-xs text-green-600">Job ID: {jobState.jobId}</p>
-                </div>
-
-                <h4 className="font-semibold">Upload Documents</h4>
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Company COC PDF <span className="text-gray-500 font-normal">(Optional)</span>
-                  </label>
-                  <input
-                    type="file"
-                    accept=".pdf"
-                    onChange={(e) => e.target.files && handleFileSelect('coc', e.target.files[0])}
-                    className="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-100 file:text-blue-700"
-                  />
-                  {jobState.files?.coc && (
-                    <p className="text-xs text-green-600 mt-1">✓ {jobState.files.coc.name}</p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Packing Slip PDF <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="file"
-                    accept=".pdf"
-                    onChange={(e) => e.target.files && handleFileSelect('packing', e.target.files[0])}
-                    className="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-100 file:text-blue-700"
-                  />
-                  {jobState.files?.packing && (
-                    <p className="text-xs text-green-600 mt-1">✓ {jobState.files.packing.name}</p>
-                  )}
-                </div>
-                <button
-                  onClick={handleUploadFiles}
-                  disabled={loading || !jobState.files?.packing}
-                  className="w-full bg-green-600 text-white py-3 rounded hover:bg-green-700 disabled:bg-gray-400 font-medium"
-                >
-                  {loading ? 'Uploading...' : 'Upload Files & Continue'}
-                </button>
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Packing Slip PDF <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="file"
+                  accept=".pdf"
+                  onChange={(e) => e.target.files && handleFileSelect('packing', e.target.files[0])}
+                  className="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-100 file:text-blue-700"
+                />
+                {jobState.files?.packing && (
+                  <p className="text-xs text-green-600 mt-1">✓ {jobState.files.packing.name}</p>
+                )}
               </div>
-            )}
+              <button
+                onClick={handleUploadFiles}
+                disabled={loading || !jobState.files?.packing}
+                className="w-full bg-green-600 text-white py-3 rounded hover:bg-green-700 disabled:bg-gray-400 font-medium"
+              >
+                {loading ? loadingMessage || 'Processing...' : 'Upload Files & Continue'}
+              </button>
+            </div>
           </div>
         );
 
@@ -561,7 +540,9 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
                   <div className="text-xs text-gray-600 space-y-1">
                     <p><strong>Partial Delivery #:</strong> {jobState.manualData.partial_delivery_number}</p>
                     <p><strong>Undelivered Quantity:</strong> {jobState.manualData.undelivered_quantity}</p>
-                    <p><strong>Software Version:</strong> {jobState.manualData.sw_version}</p>
+                    {jobState.manualData.remarks && (
+                      <p><strong>Remarks:</strong> {jobState.manualData.remarks}</p>
+                    )}
                     {jobState.manualData.contract_number && (
                       <p><strong>Contract Number:</strong> {jobState.manualData.contract_number}</p>
                     )}
@@ -607,7 +588,7 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
                   const data: any = {
                     partial_delivery_number: formData.get('partial_delivery_number') as string,
                     undelivered_quantity: formData.get('undelivered_quantity') as string,
-                    sw_version: formData.get('sw_version') as string
+                    remarks: formData.get('remarks') as string || ''
                   };
 
                   // Check for optional extracted data fields
@@ -746,31 +727,30 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
                         <label className="block text-sm font-medium mb-2">
                           Undelivered Quantity <span className="text-red-500">*</span>
                         </label>
-                        <input
-                          type="text"
+                        <textarea
                           name="undelivered_quantity"
-                          placeholder="e.g., 4196 (of 8115)"
+                          placeholder="Single item: 4196 (of 8115)&#10;&#10;Multiple items (one per line):&#10;813 (of 1472)&#10;95 (of 542)&#10;0 (of 234)"
                           className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                          rows={4}
                           required
                         />
                         <p className="text-xs text-gray-500 mt-1">
-                          Format: remaining quantity (of total ordered)
+                          Format: remaining qty (of total ordered). For multiple items in the Packing Slip, enter each on a new line in the same order as listed.
                         </p>
                       </div>
 
                       <div>
                         <label className="block text-sm font-medium mb-2">
-                          Software Version <span className="text-red-500">*</span>
+                          Remarks or Comments
                         </label>
-                        <input
-                          type="text"
-                          name="sw_version"
-                          placeholder="e.g., 2.2.15.45"
+                        <textarea
+                          name="remarks"
+                          placeholder="Enter any additional information or comments..."
                           className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                          required
+                          rows={3}
                         />
                         <p className="text-xs text-gray-500 mt-1">
-                          The software version for this product
+                          Additional information or comments for this shipment (optional)
                         </p>
                       </div>
                     </div>

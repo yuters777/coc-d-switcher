@@ -10,24 +10,24 @@ interface ManualInputFormProps {
 interface ManualInputData {
   partial_delivery_number: string;
   undelivered_quantity: string;
-  sw_version: string;
+  remarks: string;
 }
 
 export default function ManualInputForm({ extractedData, onSubmit, loading }: ManualInputFormProps) {
   const [formData, setFormData] = useState<ManualInputData>({
     partial_delivery_number: '',
     undelivered_quantity: '',
-    sw_version: ''
+    remarks: ''
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!formData.partial_delivery_number || !formData.undelivered_quantity || !formData.sw_version) {
+
+    if (!formData.partial_delivery_number || !formData.undelivered_quantity) {
       alert('Please fill in all required fields');
       return;
     }
-    
+
     onSubmit(formData);
   };
 
@@ -69,33 +69,32 @@ export default function ManualInputForm({ extractedData, onSubmit, loading }: Ma
           <label className="block text-sm font-medium mb-2">
             Undelivered Quantity <span className="text-red-500">*</span>
           </label>
-          <input
-            type="text"
+          <textarea
             value={formData.undelivered_quantity}
             onChange={(e) => setFormData({...formData, undelivered_quantity: e.target.value})}
-            placeholder="e.g., 4196 (of 8115)"
+            placeholder="Single item: 4196 (of 8115)&#10;&#10;Multiple items (one per line):&#10;813 (of 1472)&#10;95 (of 542)&#10;0 (of 234)"
             className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            rows={4}
             required
           />
           <p className="text-xs text-gray-500 mt-1">
-            Format: remaining quantity (of total ordered)
+            Format: remaining qty (of total ordered). For multiple items in the Packing Slip, enter each on a new line in the same order as listed.
           </p>
         </div>
 
         <div>
           <label className="block text-sm font-medium mb-2">
-            Software Version <span className="text-red-500">*</span>
+            Remarks or Comments
           </label>
-          <input
-            type="text"
-            value={formData.sw_version}
-            onChange={(e) => setFormData({...formData, sw_version: e.target.value})}
-            placeholder="e.g., 2.2.15.45"
+          <textarea
+            value={formData.remarks}
+            onChange={(e) => setFormData({...formData, remarks: e.target.value})}
+            placeholder="Enter any additional information or comments..."
             className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            required
+            rows={3}
           />
           <p className="text-xs text-gray-500 mt-1">
-            The software version for this product
+            Additional information or comments for this shipment (optional)
           </p>
         </div>
 

@@ -241,7 +241,7 @@ def extract_company_coc(pdf_path: str) -> Dict[str, Any]:
 
 
 def extract_packing_slip(pdf_path: str) -> Dict[str, Any]:
-    """Extract data from Packing Slip PDF
+    """Extract data from Packing Slip PDF (supports multi-page PDFs)
 
     Expected format example:
     - Ship To: [address]
@@ -255,74 +255,157 @@ def extract_packing_slip(pdf_path: str) -> Dict[str, Any]:
 
     try:
         with pdfplumber.open(pdf_path) as pdf:
-            if pdf.pages:
-                text = pdf.pages[0].extract_text()
-                logger.debug(f"Packing Slip PDF text (first 500 chars): {text[:500]}")
+            if not pdf.pages:
+                return data
 
-                # Extract Ship To address
-                ship_to_match = re.search(r'Ship\s+To[:\s]+([\s\S]+?)(?:Sold\s+To|Contract|Our\s+Reference)', text, re.IGNORECASE)
-                if ship_to_match:
-                    data['ship_to'] = ship_to_match.group(1).strip()
-                    # Clean up - take first few lines, remove "Sold To:" if it appears
-                    ship_lines = data['ship_to'].split('\n')[:5]
-                    cleaned_lines = []
-                    for line in ship_lines:
-                        line = line.strip()
-                        # Skip lines that contain "Sold To" (but keep organization names like "BCD")
-                        if line and not re.search(r'Sold\s+To', line, re.IGNORECASE):
-                            cleaned_lines.append(line)
-                    data['ship_to'] = '\n'.join(cleaned_lines)
-                    logger.info(f"Found ship to: {data['ship_to'][:50]}...")
+            # Extract text from first page for header info
+            first_page_text = pdf.pages[0].extract_text() or ""
+            logger.debug(f"Packing Slip PDF text (first 500 chars): {first_page_text[:500]}")
 
-                # Extract Shipment number from Packing Slip
-                # Pattern: "Packing Slip 6SH264587" in header
-                shipment_patterns = [
-                    r'Packing\s+Slip\s+([A-Z0-9]{8,12})',  # "Packing Slip 6SH264587"
-                    r'Shipment[:\s]+([A-Z0-9]{8,12})',  # "Shipment: 6SH264587"
-                    r'\b(\d{1,2}[A-Z]{2}\d{6})\b',  # Elbit format: "6SH264587"
+            # Extract text from ALL pages for item extraction
+            all_pages_text = ""
+            for i, page in enumerate(pdf.pages):
+                page_text = page.extract_text()
+                if page_text:
+                    all_pages_text += page_text + "\n"
+            logger.info(f"Extracted text from {len(pdf.pages)} page(s) of Packing Slip")
+
+            # Use first page text for header extraction (Ship To, Contract, etc.)
+            text = first_page_text
+
+            # Extract Ship To address
+            # Note: PDF has Ship To and Sold To in side-by-side columns
+            # pdfplumber may interleave them, so we need to filter out Sold To content
+            ship_to_match = re.search(r'Ship\s+To[:\s]+([\s\S]+?)(?:Sold\s+To|Contract|Our\s+Reference)', text, re.IGNORECASE)
+            if ship_to_match:
+                data['ship_to'] = ship_to_match.group(1).strip()
+                # Clean up - take first few lines
+                ship_lines = data['ship_to'].split('\n')[:6]
+                cleaned_lines = []
+
+                # Known "Sold To" content patterns to filter out
+                sold_to_patterns = [
+                    r'NETHERLANDS\s+MINISTRY',
+                    r'\bCOMMIT\b',
+                    r'Projects?\s+Procurement',
+                    r'Herculeslaan',
+                    r'Utrecht\s+MPC',
+                    r'The\s+Netherlands$',
+                    r'Sold\s+To',
                 ]
-                for pattern in shipment_patterns:
-                    shipment_match = re.search(pattern, text, re.IGNORECASE)
-                    if shipment_match:
-                        data['shipment_no'] = shipment_match.group(1)
-                        logger.info(f"Found shipment number: {data['shipment_no']}")
-                        break
 
-                # Fallback: Try to extract from filename
-                if 'shipment_no' not in data:
-                    filename = Path(pdf_path).name
-                    filename_pattern = r'Packing[_\s]?Slip[_\s]?([A-Z0-9]{8,12})'
-                    filename_match = re.search(filename_pattern, filename, re.IGNORECASE)
-                    if filename_match:
-                        data['shipment_no'] = filename_match.group(1)
-                        logger.info(f"Found shipment number from filename: {data['shipment_no']}")
+                for line in ship_lines:
+                    line = line.strip()
+                    if not line:
+                        continue
 
-                # Extract Contract number
-                contract_patterns = [
-                    r'Contract[:\s]+[\w\s]*?([\d.]+)',
-                    r'Our\s+Reference[:\s]+([\d.]+)',
-                ]
-                for pattern in contract_patterns:
-                    contract_match = re.search(pattern, text, re.IGNORECASE)
-                    if contract_match:
-                        data['contract_number'] = contract_match.group(1).strip()
-                        logger.info(f"Found contract: {data['contract_number']}")
-                        break
+                    # Check if line contains Sold To content
+                    is_sold_to = False
+                    for pattern in sold_to_patterns:
+                        if re.search(pattern, line, re.IGNORECASE):
+                            is_sold_to = True
+                            break
 
-                # Extract Customer Item
-                cust_item_match = re.search(r'Customers?\s+Item[:\s]+(\d+)', text, re.IGNORECASE)
-                if cust_item_match:
-                    data['customer_item'] = cust_item_match.group(1)
-                    logger.info(f"Found customer item: {data['customer_item']}")
+                    if is_sold_to:
+                        # Try to extract just the Ship To portion (before Sold To content)
+                        # Split at known Sold To keywords
+                        for pattern in sold_to_patterns:
+                            match = re.search(pattern, line, re.IGNORECASE)
+                            if match:
+                                left_part = line[:match.start()].strip()
+                                if left_part and len(left_part) > 2:
+                                    cleaned_lines.append(left_part)
+                                break
+                    else:
+                        cleaned_lines.append(line)
 
-                # Extract Part Number and Description
-                # Pattern: "20580903700 PNR-1000N WPTT 100.00 EA"
+                data['ship_to'] = '\n'.join(cleaned_lines)
+                logger.info(f"Found ship to: {data['ship_to'][:50]}...")
+
+            # Extract Shipment number from Packing Slip
+            # Pattern: "Packing Slip 6SH264587" in header
+            shipment_patterns = [
+                r'Packing\s+Slip\s+([A-Z0-9]{8,12})',  # "Packing Slip 6SH264587"
+                r'Shipment[:\s]+([A-Z0-9]{8,12})',  # "Shipment: 6SH264587"
+                r'\b(\d{1,2}[A-Z]{2}\d{6})\b',  # Elbit format: "6SH264587"
+            ]
+            for pattern in shipment_patterns:
+                shipment_match = re.search(pattern, text, re.IGNORECASE)
+                if shipment_match:
+                    data['shipment_no'] = shipment_match.group(1)
+                    logger.info(f"Found shipment number: {data['shipment_no']}")
+                    break
+
+            # Fallback: Try to extract from filename
+            if 'shipment_no' not in data:
+                filename = Path(pdf_path).name
+                filename_pattern = r'Packing[_\s]?Slip[_\s]?([A-Z0-9]{8,12})'
+                filename_match = re.search(filename_pattern, filename, re.IGNORECASE)
+                if filename_match:
+                    data['shipment_no'] = filename_match.group(1)
+                    logger.info(f"Found shipment number from filename: {data['shipment_no']}")
+
+            # Extract Contract number
+            contract_patterns = [
+                r'Contract[:\s]+[\w\s]*?([\d.]+)',
+                r'Our\s+Reference[:\s]+([\d.]+)',
+            ]
+            for pattern in contract_patterns:
+                contract_match = re.search(pattern, text, re.IGNORECASE)
+                if contract_match:
+                    data['contract_number'] = contract_match.group(1).strip()
+                    logger.info(f"Found contract: {data['contract_number']}")
+                    break
+
+            # Extract Customer Item from first page (for backward compatibility)
+            cust_item_match = re.search(r'Customers?\s+Item[:\s]+(\d+)', text, re.IGNORECASE)
+            if cust_item_match:
+                data['customer_item'] = cust_item_match.group(1)
+                logger.info(f"Found customer item: {data['customer_item']}")
+
+            # Extract ALL Customer Items from ALL pages (for multi-item packing slips)
+            all_customer_items = re.findall(r'Customers?\s+Item[:\s]+(\d+)', all_pages_text, re.IGNORECASE)
+            if all_customer_items:
+                data['customer_items'] = all_customer_items
+                logger.info(f"Found {len(all_customer_items)} customer items across all pages: {all_customer_items}")
+
+            # Extract ALL Part Numbers, Descriptions, and Quantities from ALL pages
+            # Pattern matches rows like: "110 20580966000 SVC-29 UNIT 463.00 EA"
+            # or "11 20580911000 POWER UNIT 56.00 EA"
+            items = []
+
+            # Pattern for item rows: Dlv (1-3 digits), Part No (11 digits), Description, Qty, EA
+            item_pattern = r'(\d{1,3})\s+(\d{11})\s+([\w\s\-]+?)\s+(\d+\.?\d*)\s*EA'
+            item_matches = re.findall(item_pattern, all_pages_text, re.IGNORECASE)
+
+            for match in item_matches:
+                dlv, part_no, description, qty = match
+                items.append({
+                    'dlv': dlv.strip(),
+                    'part_no': part_no.strip(),
+                    'description': description.strip(),
+                    'quantity': int(float(qty))
+                })
+
+            if items:
+                data['items'] = items
+                data['item_count'] = len(items)
+                logger.info(f"Found {len(items)} items across all pages of packing slip")
+
+                # Also set single values for backward compatibility (first item)
+                data['part_no'] = items[0]['part_no']
+                data['description'] = items[0]['description']
+                data['quantity'] = items[0]['quantity']
+
+            # Extract Part Number and Description (fallback for single item)
+            # Pattern: "20580903700 PNR-1000N WPTT 100.00 EA"
+            if 'part_no' not in data:
                 part_patterns = [
                     r'(\d{11})\s+([\w\s-]+?)\s+(\d+\.\d+)\s+EA',
                     r'Part\s+No[:\s]+(\d{11}).*?Description[:\s]+([\w\s-]+)',
                 ]
                 for pattern in part_patterns:
-                    part_match = re.search(pattern, text, re.DOTALL)
+                    part_match = re.search(pattern, all_pages_text, re.DOTALL)
                     if part_match:
                         data['part_no'] = part_match.group(1)
                         data['description'] = part_match.group(2).strip()
@@ -334,21 +417,21 @@ def extract_packing_slip(pdf_path: str) -> Dict[str, Any]:
                         logger.info(f"Found part: {data['part_no']} - {data.get('description')}")
                         break
 
-                # Extract Quantity if not found above
-                if 'quantity' not in data:
-                    qty_patterns = [
-                        r'(\d+\.\d+)\s+EA',
-                        r'Quantity[:\s]+(\d+)',
-                    ]
-                    for pattern in qty_patterns:
-                        qty_match = re.search(pattern, text, re.IGNORECASE)
-                        if qty_match:
-                            try:
-                                data['quantity'] = int(float(qty_match.group(1)))
-                                logger.info(f"Found quantity: {data['quantity']}")
-                            except:
-                                pass
-                            break
+            # Extract Quantity if not found above
+            if 'quantity' not in data:
+                qty_patterns = [
+                    r'(\d+\.\d+)\s+EA',
+                    r'Quantity[:\s]+(\d+)',
+                ]
+                for pattern in qty_patterns:
+                    qty_match = re.search(pattern, all_pages_text, re.IGNORECASE)
+                    if qty_match:
+                        try:
+                            data['quantity'] = int(float(qty_match.group(1)))
+                            logger.info(f"Found quantity: {data['quantity']}")
+                        except:
+                            pass
+                        break
 
     except Exception as e:
         logger.error(f"Error extracting from Packing Slip: {str(e)}", exc_info=True)
@@ -409,10 +492,18 @@ def merge_extracted_data(coc_data: Dict, ps_data: Dict) -> Dict[str, Any]:
     # QA Signer - from COC
     merged['qa_signer'] = coc_data.get('qa_signer') or ''
 
+    # Multi-item support - pass through items list from Packing Slip
+    if ps_data.get('items'):
+        merged['items'] = ps_data['items']
+        merged['item_count'] = ps_data.get('item_count', len(ps_data['items']))
+    if ps_data.get('customer_items'):
+        merged['customer_items'] = ps_data['customer_items']
+
     logger.info(f"Merged data - contract: {merged.get('contract_number')}, "
                 f"shipment: {merged.get('shipment_no')}, "
                 f"quantity: {merged.get('quantity')}, "
-                f"serials: {merged.get('serial_count')}")
+                f"serials: {merged.get('serial_count')}, "
+                f"items: {merged.get('item_count', 1)}")
 
     return merged
 
