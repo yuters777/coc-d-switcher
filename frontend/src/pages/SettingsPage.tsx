@@ -1,5 +1,4 @@
 // frontend/src/pages/SettingsPage.tsx (NEW FILE)
-import React from 'react';
 import TemplateManager from '../components/TemplateManager';
 
 interface SettingsPageProps {

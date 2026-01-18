@@ -1,5 +1,4 @@
 // frontend/src/components/ValidationPanel.tsx
-import React from 'react';
 
 interface ValidationError {
   code: string;

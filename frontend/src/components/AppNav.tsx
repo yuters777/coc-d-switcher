@@ -1,5 +1,4 @@
 // frontend/src/components/AppNav.tsx
-import React from 'react';
 
 interface AppNavProps {
   title: string;

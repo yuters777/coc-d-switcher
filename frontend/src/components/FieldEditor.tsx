@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 
 interface FieldEditorProps {
   jobId: string;
@@ -6,7 +6,7 @@ interface FieldEditorProps {
   onSave: (data: any) => void;
 }
 
-export default function FieldEditor({ jobId, data, onSave }: FieldEditorProps) {
+export default function FieldEditor({ jobId: _jobId, data, onSave }: FieldEditorProps) {
   const [fields, setFields] = useState(data || {});
   const [serials, setSerials] = useState<string[]>([]);
 

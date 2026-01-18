@@ -1,5 +1,5 @@
 // frontend/src/pages/ConversionPage.tsx
-import React, { useState } from 'react';
+import { useState } from 'react';
 import AppNav from '../components/AppNav';
 import ConfirmationModal from '../components/ConfirmationModal';
 
@@ -38,85 +38,14 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
   const [missingDataFields, setMissingDataFields] = useState<string[]>([]);
   const [pendingManualData, setPendingManualData] = useState<any>(null);
   const [showValidationErrorModal, setShowValidationErrorModal] = useState(false);
-  const [previousNames, setPreviousNames] = useState<string[]>([]);
 
   const API_BASE = 'http://localhost:8000';
-
-  // Load previous names from localStorage on component mount
-  React.useEffect(() => {
-    const storedNames = localStorage.getItem('coc_previous_names');
-    if (storedNames) {
-      try {
-        const names = JSON.parse(storedNames);
-        setPreviousNames(names);
-      } catch (e) {
-        console.error('Error loading previous names:', e);
-      }
-    }
-  }, []);
-
-  // Save name to localStorage when creating a job
-  const saveNameToHistory = (name: string) => {
-    if (!name || name.trim() === '') return;
-
-    const trimmedName = name.trim();
-    // Add to list if not already present
-    const updatedNames = previousNames.includes(trimmedName)
-      ? previousNames
-      : [trimmedName, ...previousNames].slice(0, 10); // Keep only last 10 names
-
-    setPreviousNames(updatedNames);
-    localStorage.setItem('coc_previous_names', JSON.stringify(updatedNames));
-  };
 
   const steps = [
     { number: 1, name: 'Upload', description: 'Upload COC & Packing Slip PDFs' },
     { number: 2, name: 'Complete', description: 'Review & complete data' },
     { number: 3, name: 'Download', description: 'Download result' }
   ];
-
-  const handleCreateJob = async () => {
-    console.log('Create job clicked', jobState);
-    if (!jobState.name || !jobState.submittedBy) {
-      return; // Form validation
-      return;
-    }
-
-    setLoading(true);
-    try {
-      console.log('Sending request to create job...');
-      const response = await fetch(`${API_BASE}/api/jobs`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: jobState.name,
-          submitted_by: jobState.submittedBy
-        })
-      });
-
-      console.log('Create job response:', response.status, response.ok);
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Job created:', data);
-
-        // Save the name to history for future use
-        saveNameToHistory(jobState.submittedBy);
-
-        setJobState({ ...jobState, jobId: data.job_id });
-
-      } else {
-        const errorText = await response.text();
-        console.error('Failed to create job:', errorText);
-        console.error('Failed to create job:', errorText);
-      }
-    } catch (error) {
-      console.error('Create job error:', error);
-      console.error('Failed to create job:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleFileSelect = (type: 'coc' | 'packing', file: File) => {
     setJobState({
@@ -206,7 +135,7 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
         console.log('Upload successful:', data);
         // Automatically parse after upload (pass currentJobId since state may not be updated yet)
         setLoadingMessage('Extracting data from PDFs...');
-        await handleParse(currentJobId);
+        await handleParse(currentJobId ?? undefined);
       } else {
         const errorText = await response.text();
         console.error('Upload failed:', response.status, errorText);
@@ -380,92 +309,6 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
     }
   };
 
-  const handleValidate = async () => {
-    if (!jobState.jobId) {
-      console.error('No job found'); return;
-      return;
-    }
-
-    setLoading(true);
-    try {
-      console.log('Validating data for job:', jobState.jobId);
-      const response = await fetch(`${API_BASE}/api/jobs/${jobState.jobId}/validate`, {
-        method: 'POST'
-      });
-
-      console.log('Validation response:', response.status, response.ok);
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Validation result:', data);
-        setJobState({
-          ...jobState,
-          validationResult: data.validation
-        });
-
-        if (data.has_errors) {
-          // Show validation error modal instead of just an alert
-          setShowValidationErrorModal(true);
-        } else if (data.has_warnings) {
-          // Validation has warnings but can proceed - auto-progress to render
-          setCurrentStep(5);
-        } else {
-          // Auto-progress to render step
-          setCurrentStep(5);
-        }
-      } else {
-        const errorText = await response.text();
-        console.error('Failed to validate:', errorText);
-        console.error('Failed to validate data:', errorText);
-      }
-    } catch (error) {
-      console.error('Validation error:', error);
-      console.error('Failed to validate data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRender = async () => {
-    if (!jobState.jobId) {
-      console.error('No job found'); return;
-      return;
-    }
-
-    setLoading(true);
-    try {
-      console.log('Rendering document for job:', jobState.jobId);
-      const response = await fetch(`${API_BASE}/api/jobs/${jobState.jobId}/render`, {
-        method: 'POST'
-      });
-
-      console.log('Render response:', response.status, response.ok);
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Render result:', data);
-        setJobState({
-          ...jobState,
-          renderedFiles: {
-            docx: data.rendered_file,
-            template: data.template_used
-          }
-        });
-        // Auto-progress to download
-        setCurrentStep(6);
-      } else {
-        const errorText = await response.text();
-        console.error('Failed to render:', errorText);
-        console.error('Failed to render document:', errorText);
-      }
-    } catch (error) {
-      console.error('Render error:', error);
-      console.error('Failed to render document:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleStepClick = (step: WorkflowStep) => {
     console.log('Step clicked:', step, 'Current step:', currentStep);
     // For now, only allow clicking on the current step or completed steps
@@ -571,7 +414,7 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
                     ✏️ Edit Data
                   </button>
                   <button
-                    onClick={() => setCurrentStep(4)}
+                    onClick={() => setCurrentStep(2)}
                     className="flex-1 bg-green-600 text-white py-2 rounded hover:bg-green-700 font-medium"
                   >
                     Continue to Validation →
@@ -890,16 +733,16 @@ export default function ConversionPage({ onSettingsClick }: ConversionPageProps)
           // User wants to skip validation
           setShowValidationErrorModal(false);
           if (confirm('⚠️ Final Warning\n\nProceeding with validation errors may result in incomplete or incorrect documents.\n\nAre you absolutely sure?')) {
-            setCurrentStep(5);
+            setCurrentStep(3);
           }
         }}
         onCancel={() => {
-          // User wants to fix errors - go back to Step 3
+          // User wants to fix errors - go back to Step 2
           setShowValidationErrorModal(false);
-          setCurrentStep(3);
+          setCurrentStep(2);
         }}
         confirmText="Skip Validation (Not Recommended)"
-        cancelText="Go Back to Step 3 & Fix"
+        cancelText="Go Back & Fix"
         type="error"
       />
 
